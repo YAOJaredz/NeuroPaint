@@ -217,9 +217,9 @@ class Trainer():
                 for trial_type in ['left', 'right']:
 
                     if trial_type == 'left':
-                        trial_type_flag = (batch['trial_type'] == 1)
-                    elif trial_type == 'right':
                         trial_type_flag = (batch['trial_type'] == -1)
+                    elif trial_type == 'right':
+                        trial_type_flag = (batch['trial_type'] == 1)
 
                     trial_num = trial_type_flag.sum()
 
