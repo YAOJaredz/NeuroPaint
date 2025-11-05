@@ -49,7 +49,6 @@ datasets/
 raw_data/
 processed_data/
 cache/
-models/
 checkpoints/
 weights/
 *.h5
