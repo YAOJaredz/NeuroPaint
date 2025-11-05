@@ -1,3 +1,5 @@
+import sys
+sys.path.append('src')
 import torch
 import numpy as np
 import os
@@ -17,7 +19,7 @@ def main(eids, with_reg):
 
     consistency = True
 
-    base_path = '/root_folder2/results/mae_results'
+    base_path = 'results/mae_results'
     num_train_sessions = len(eids)
 
     mask_mode = 'region' # 'time' or 'region' or 'time_region'
@@ -32,11 +34,11 @@ def main(eids, with_reg):
 
     #%%
     kwargs = {
-        "model": f"include:/root_folder/src/configs/mae_with_hemisphere_embed_and_diff_dim_per_area_ibl.yaml",
+        "model": f"include:src/configs/mae_with_hemisphere_embed_and_diff_dim_per_area_ibl.yaml",
     }
 
     config = config_from_kwargs(kwargs)
-    config = update_config("/root_folder/src/configs/finetune_sessions_trainer.yaml", config)
+    config = update_config("src/configs/finetune_sessions_trainer.yaml", config)
 
     config['model']['encoder']['masker']['mask_mode'] = mask_mode
     config['model']['encoder']['stitcher']['n_channels_per_region'] = region_channel_num_encoder
@@ -60,7 +62,7 @@ def main(eids, with_reg):
     meta_data['eids'] = [eid_idx for eid_idx, eid in enumerate(eids)]
 
     #load pr_max_dict
-    pr_max_dict_path = '/root_folder2/data/tables_and_infos/pr_max_dict_ibl.pkl'
+    pr_max_dict_path = '/work/hdd/bdye/jyao7/data/tables_and_infos/pr_max_dict_ibl.pkl'
     with open(pr_max_dict_path, 'rb') as f:
         pr_max_dict = pickle.load(f)
 

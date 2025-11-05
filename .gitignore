@@ -1,0 +1,113 @@
+# General
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+*.temp
+*.bak
+
+# OS generated
+ehthumbs.db
+Icon?
+*.lnk
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.cache/
+.pyre/
+.mypy_cache/
+pip-wheel-metadata/
+*.egg-info/
+build/
+dist/
+eggs/
+parts/
+sdist/
+wheels/
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb_checkpoints
+jupyter_runtime/
+nboutput/
+
+# Data / models / checkpoints (machine learning / large files)
+data/
+datasets/
+raw_data/
+processed_data/
+cache/
+models/
+checkpoints/
+weights/
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+
+# Configuration / secrets
+.env
+.env.*
+.secrets/
+credentials/
+config/local_settings.py
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+
+# Node (if project uses frontend tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+
+# Compiled / build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.class
+
+# Archives
+*.zip
+*.tar.gz
+*.tar
+*.rar
+
+# Image / binary caches
+*.cache
+thumbs.db
+
+# Neuroimaging common
+*.nii
+*.nii.gz
+*.mgz
+
+# Allowlist examples (uncomment to keep)
+# !/README.md
+# !/requirements.txt
+
+logs
+data/

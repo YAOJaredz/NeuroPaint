@@ -11,7 +11,8 @@ class DatasetDataLoader:
         seed=42, 
         distributed=False, 
         rank=0, 
-        world_size=1
+        world_size=1,
+        drop_last=False
     ):
         self.seed = seed
         self.distributed = distributed
@@ -23,7 +24,7 @@ class DatasetDataLoader:
         self.loaders = []
         for dataset in datasets_list:
             if self.distributed:
-                sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True, seed=seed)
+                sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True, seed=seed, drop_last=drop_last)
             else:
                 sampler = RandomSampler(dataset)
 

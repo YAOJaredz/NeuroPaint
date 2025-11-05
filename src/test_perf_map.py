@@ -29,7 +29,7 @@ def main(include_opto, eids, with_reg):
     use_wandb = False
 
     kwargs = {
-        "model": f"include:/root_folder/src/configs/mae_with_hemisphere_embed_and_diff_dim_per_area.yaml",
+        "model": f"include:src/configs/mae_with_hemisphere_embed_and_diff_dim_per_area.yaml",
     }
 
     config = config_from_kwargs(kwargs)

@@ -28,7 +28,7 @@ def main(eids, with_reg):
     consistency = False
     load_previous_model = False
 
-    base_path = '/root_folder2/results/mae_results/'
+    base_path = 'results/'
     num_train_sessions = len(eids)
     train = True
 
@@ -45,11 +45,11 @@ def main(eids, with_reg):
 
     #%%
     kwargs = {
-        "model": f"include:/root_folder/src/configs/mae_with_region_stitcher_cross_att_simple_decoder.yaml",
+        "model": f"include:src/configs/mae_with_hemisphere_embed_and_diff_dim_per_area.yaml",
     }
 
     config = config_from_kwargs(kwargs)
-    config = update_config("/root_folder/src/configs/finetune_sessions_trainer.yaml", config)
+    config = update_config("src/configs/finetune_sessions_trainer.yaml", config)
 
     config['model']['encoder']['masker']['mask_mode'] = mask_mode
     config['model']['decoder']['stitcher']['n_channels_per_region'] = region_channel_num

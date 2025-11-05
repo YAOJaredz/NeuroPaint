@@ -1,4 +1,5 @@
-import os
+import os, sys
+sys.path.append('src')
 import pandas as pd
 from pynwb import NWBHDF5IO
 import pickle
@@ -26,12 +27,12 @@ def load_session_data(session_ind, session_idx):
     trial_type: K
     '''
 
-    with open(f"/work/hdd/bdye/jxia4/data/tables_and_infos/ibl_eids.txt") as file:
+    with open(f"/work/hdd/bdye/jyao7/data/tables_and_infos/ibl_eids.txt") as file:
         eids = [line.rstrip() for line in file]
 
     print(f"EID {session_ind}")
 
-    files = sorted(glob.glob('/work/hdd/bdye/jxia4/data/loaded_ibl_data/session_ind_*.pickle'))
+    files = sorted(glob.glob('/work/hdd/bdye/jyao7/data/loaded_ibl_data/session_ind_*.pickle'))
     session_ind_list = [int(file.split('_')[-1].split('.')[0]) for file in files]
     if session_idx not in session_ind_list:
         params = {
@@ -45,7 +46,7 @@ def load_session_data(session_ind, session_idx):
             base_url="https://openalyx.internationalbrainlab.org",
             password="international", 
             silent=True,
-            cache_dir="/work/hdd/bdye/jxia4/data/ibl_raw/"
+            cache_dir="/work/hdd/bdye/jyao7/data/ibl_raw/"
         )
         neural_dict, behave_dict, meta_dict, trials_dict, _ = prepare_data(
             one, session_ind, params, n_workers=1
@@ -92,7 +93,7 @@ def load_session_data(session_ind, session_idx):
         trial_type = align_bin_beh["choice"]
 
         # Save data
-        with open('/work/hdd/bdye/jxia4/data/loaded_ibl_data/session_ind_{}.pickle'.format(session_idx), 'wb') as f:
+        with open('/work/hdd/bdye/jyao7/data/loaded_ibl_data/session_ind_{}.pickle'.format(session_idx), 'wb') as f:
             pickle.dump([spike_data, behavior, area_ind_list, is_left, is_ALM, trial_type], f)
     else:
         print(f"Loading EID {session_ind} from cached data")
@@ -222,7 +223,7 @@ def make_loader(
     rank=0, 
     world_size=1
 ):
-    path = "/work/hdd/bdye/jxia4/data/tables_and_infos/"
+    path = "data/tables_and_infos/"
 
     areaoi = ["PO", "LP", "DG", "CA1", "VISa", "VPM", "APN", "MRN"]
     region_to_ind = {region: i for i, region in enumerate(areaoi)}
@@ -330,7 +331,7 @@ def make_loader(
 #%%
 def main():
 
-    with open(f"/work/hdd/bdye/jxia4/data/tables_and_infos/ibl_eids.txt") as file:
+    with open(f"data/tables_and_infos/ibl_eids.txt") as file:
         eids = [line.rstrip() for line in file]
 
     data_loader, num_neurons, datasets, areaoi_ind, area_ind_list_list, heldout_info_list, trial_type_dict = make_loader(eids, 12)

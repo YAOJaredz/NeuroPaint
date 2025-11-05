@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=bdye-delta-gpu
 #SBATCH --job-name="train_map"
-#SBATCH --output="train_map.%j.out"
+#SBATCH --output="logs/train_map.%j.out"
 #SBATCH --nodes=6
 #SBATCH --ntasks=6
 #SBATCH --gpus-per-task=1
@@ -9,6 +9,7 @@
 #SBATCH --time=48:00:00
 #SBATCH --mem=128000
 #SBATCH --partition=gpuA100x4,gpuA40x4
+#SBATCH --chdir=/u/jyao7/NeuroPaint
 
 echo "Running on $(hostname)"          # Print the name of the current node
 echo "Using $(nproc) CPUs"             # Print the number of CPUs on the current node

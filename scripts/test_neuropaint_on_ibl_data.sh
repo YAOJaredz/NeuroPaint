@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --account=bdye-delta-gpu
 #SBATCH --job-name="test_ibl"
-#SBATCH --output="test_ibl.%j.out"
-#SBATCH --error="test_ibl.%j.err"
+#SBATCH --output="logs/test_ibl.%j.out"
+#SBATCH --error="logs/test_ibl.%j.err"
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
@@ -15,18 +15,18 @@
 source /etc/profile
 source ~/.bashrc   # Or other appropriate initialization file
 
-module load anaconda3_gpu
-source activate neuropaint
-
+# module load anaconda3_gpu
+# source activate neuropaint
+conda activate neuropaint
 
 #load session id for ibl
-session_order_file="/root_folder2/data/tables_and_infos/ibl_eids.txt"
+session_order_file="/work/hdd/bdye/jyao7/data/tables_and_infos/ibl_eids.txt"
 eids=$(python -c "with open('$session_order_file', 'r') as file: print('\n'.join([line.strip() for line in file]))")
 
 # Print loaded eids for debugging
 echo "Loaded eids: $eids"
 
-export CMD="python -u /root_folder/test_perf_ibl.py --eids $eids --with_reg"
+export CMD="python -u src/test_perf_ibl.py --eids $eids --with_reg"
 
 
 srun $CMD

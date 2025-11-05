@@ -169,7 +169,7 @@ def get_flag_for_hemisphere_and_ALM(units, ids_sort_by_area):
     is_left = np.zeros((len(units),))
     is_ALM = np.zeros((len(units),))
 
-    nii = nib.load('/work/hdd/bdye/jxia4/code/autoencoder_mae/src/loader/ALM_functionalData.nii')
+    nii = nib.load('src/loader/ALM_functionalData.nii')
     V = nii.get_fdata()
 
     # Find nonzero voxels and get their indices

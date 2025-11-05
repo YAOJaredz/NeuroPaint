@@ -1,3 +1,5 @@
+import sys
+sys.path.append('src')
 import torch
 import torch.nn as nn
 import numpy as np
@@ -116,7 +118,7 @@ class RNNNet(nn.Module):
         return out, rnn_output
 
 #%%
-path = '/work/hdd/bdye/jxia4/code/autoencoder_mae/src/loader/'
+path = 'src/loader/'
 file_path = path + 'chaotic_rnn_200x5_tau25_dt10_g_3_btw_sparsity_01.pth'
 
 
@@ -226,7 +228,7 @@ def make_chaotic_rnn_loader(session_ind_list, batch_size, seed=42, distributed=F
     record_info_list = []
     
     #path = '/work/hdd/bdye/jxia4/data/generated_before_chaotic_rnn/5_area_chaotic_rnn_g3_factor_200/'
-    path = '/work/hdd/bdye/jxia4/data/generated_before_chaotic_rnn/5_area_chaotic_rnn_g3_factor_200_log_fr_neg3_to_3/'
+    path = 'data/generated_before_chaotic_rnn/5_area_chaotic_rnn_g3_factor_200_log_fr_neg3_to_3/'
 
     n_area = 5
     os.makedirs(path, exist_ok=True)

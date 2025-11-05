@@ -1,4 +1,6 @@
 # %%
+import sys
+sys.path.append('src')
 from utils.svoboda_data_utils import *
 import pandas as pd
 from pynwb import NWBHDF5IO
@@ -23,13 +25,13 @@ def load_session_data(session_ind, trial_type_dict):
     trial_type: K
 
     '''
-    files = sorted(glob.glob('/work/hdd/bdye/jxia4/data/loaded_before_unbalanced_is_ALM_is_left/session_ind_*.pickle'))
+    files = sorted(glob.glob('/work/hdd/bdye/jyao7/data/loaded_before_unbalanced_is_ALM_is_left/session_ind_*.pickle'))
     session_ind_list = [int(file.split('_')[-1].split('.')[0]) for file in files]
     if session_ind in session_ind_list:
         with open(files[session_ind_list.index(session_ind)], 'rb') as f:
             return pickle.load(f)
 
-    path = '/work/hdd/bdye/jxia4/data/tables_and_infos/'
+    path = '/work/hdd/bdye/jyao7/data/tables_and_infos/'
 
     session_info = pd.read_csv(path + 'session_info.csv')
     file_name = session_info['session_name'][session_ind]
@@ -108,7 +110,7 @@ def load_session_data(session_ind, trial_type_dict):
 
     behavior_unbalanced = np.concatenate((behavior_data_concat_dict['jaw'], behavior_data_concat_dict['nose'], behavior_data_concat_dict['tongue']), axis=2)
 
-    with open('/work/hdd/bdye/jxia4/data/loaded_before_unbalanced_is_ALM_is_left/session_ind_{}.pickle'.format(session_ind), 'wb') as f:
+    with open('/work/hdd/bdye/jyao7/data/loaded_before_unbalanced_is_ALM_is_left/session_ind_{}.pickle'.format(session_ind), 'wb') as f:
         pickle.dump([spike_data_unbalanced, behavior_unbalanced, area_ind_list, is_left, is_ALM, trial_type_unbalanced], f)
 
     print('shape of spike_data_unbalanced: ')
@@ -244,7 +246,7 @@ def update_area_ind_list_and_areaoi_ind(area_ind_list, areaoi, brain_region_list
 #%%
 def make_loader(session_ind_list, batch_size, include_opto = False, seed=42, distributed=False, rank=0, world_size=1):
 
-    path = '/work/hdd/bdye/jxia4/data/tables_and_infos/'
+    path = '/work/hdd/bdye/jyao7/data/tables_and_infos/'
 
     #load region_info_summary.pkl
     with open(path + 'region_info_summary.pkl', 'rb') as f:
@@ -364,7 +366,7 @@ def make_loader(session_ind_list, batch_size, include_opto = False, seed=42, dis
 
 #%%
 def main():
-    session_order = pickle.load(open('/work/hdd/bdye/jxia4/data/tables_and_infos/session_order.pkl', 'rb'))
+    session_order = pickle.load(open('/work/hdd/bdye/jyao7/data/tables_and_infos/session_order.pkl', 'rb'))
 
     eids = np.sort(session_order[:40])
 

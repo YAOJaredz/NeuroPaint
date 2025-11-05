@@ -353,9 +353,8 @@ class NeuralEncoder(nn.Module):
         
         x = x_all
         
-        # Forward transformer
-        for layer in self.layers:
-            x = layer(x, timestamp=timestamp)
+        # Forward through linear layer
+        x = self.linear_layer(x)
         x = self.ln(x)
 
         if self.use_prompt:
