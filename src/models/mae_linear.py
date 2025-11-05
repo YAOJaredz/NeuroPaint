@@ -5,10 +5,11 @@ from typing import Optional
 import torch
 import torch.nn as nn
 from dataclasses import dataclass
+import pickle
 
 from models.model_output import ModelOutput
 from utils.config_utils import DictConfig
-from models.mae_with_hemisphere_embed_and_diff_dim_per_area import StitchDecoder
+# from models.mae_with_hemisphere_embed_and_diff_dim_per_area import StitchDecoder
 from utils.mask import random_mask
 
 # FIXME: placeholder for n_emb
@@ -37,7 +38,7 @@ class LinearStitcher(nn.Module):
         
         session_area_linears = {}
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
-            for area in np.unique(area_ind_list):
+            for area in self.areaoi_ind:
                 n_neurons = int(np.sum(area_ind_list == area))
                 session_area_linears[f"{session_ind}_{area}"] = nn.Embedding(n_neurons, self.n_emb)
 
@@ -76,9 +77,12 @@ class LinearEncoder(nn.Module):
         self.r_ratio = 0.1
         
         self.n_regions = len(kwargs['areaoi_ind'])
-        self.n_lat = {k: kwargs['pr_max_dict'][k] for k in kwargs['areaoi_ind']}
-        
-        self.stitcher = LinearStitcher(kwargs['eids'], kwargs['area_ind_list_list'], kwargs['areaoi_ind'], config.stitcher)
+        if 'pr_max_dict' in kwargs:
+            self.n_lat = {k: kwargs['pr_max_dict'][k] for k in kwargs['areaoi_ind']}
+        else:
+            self.n_lat = {k: 20 for k in kwargs['areaoi_ind']}
+
+        self.stitcher = LinearStitcher(kwargs['eids'], kwargs['area_ind_list_list'], kwargs['areaoi_ind'], config)
 
         self.U_layer = nn.Linear(self.stitcher.output_dim, self.hidden_size)
         self.V_layer = nn.Linear(self.hidden_size, np.sum(list(self.n_lat.values())))
@@ -86,8 +90,6 @@ class LinearEncoder(nn.Module):
     def forward(
             self, 
             spikes:           torch.FloatTensor,  # (B, T, N)
-            spikes_timestamp: torch.LongTensor,   # (B, T)
-            area_ind_unique:  torch.LongTensor,   # (R,)
             neuron_regions:   Optional[torch.LongTensor] = None,  # (B, N)
             is_left:         Optional[torch.LongTensor] = None, # (B, N)
             trial_type:       Optional[torch.LongTensor] = None, # (B, )
@@ -132,7 +134,7 @@ class LinearDecoder(nn.Module):
         
         area_session_linears = {}
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
-            for area in np.unique(area_ind_list):
+            for area in self.areaoi_ind:
                 n_neurons = int(np.sum(area_ind_list == area))
                 area_session_linears[f"{session_ind}_{area}"] = nn.Embedding(n_latents_dict[area], n_neurons)
         self.session_area_linears = nn.ModuleDict(area_session_linears)
@@ -158,13 +160,19 @@ class Linear_MAE(nn.Module):
     ):
         super().__init__()
         
+        if 'pr_max_dict' not in kwargs:
+            lat_dict = {k: 20 for k in kwargs['areaoi_ind']}
+            kwargs['pr_max_dict'] = lat_dict
+            
         # Build encoder
-        self.encoder = LinearEncoder(config.encoder, **kwargs)
+        self.encoder = LinearEncoder(config, **kwargs)
 
         #stitcher
+        
+        
         self.decoder = LinearDecoder(
             kwargs['eids'],
-            {k: kwargs['pr_max_dict'][k] for k in kwargs['areaoi_ind']},
+            kwargs['pr_max_dict'],
             kwargs['area_ind_list_list'],
             kwargs['areaoi_ind'],
         )
@@ -175,7 +183,6 @@ class Linear_MAE(nn.Module):
     def forward(
         self, 
         spikes:           torch.FloatTensor,  # (bs, seq_len, N)
-        spikes_timestamps: torch.LongTensor,   # (bs, seq_len)
         neuron_regions:   Optional[torch.LongTensor] = None,   # (bs, N)
         is_left:         Optional[torch.LongTensor] = None, # (bs, N)
         trial_type:       Optional[torch.LongTensor] = None, # (bs, )
@@ -187,7 +194,7 @@ class Linear_MAE(nn.Module):
 
         targets = spikes.clone()
 
-        x = self.encoder(spikes, spikes_timestamps, neuron_regions, is_left, trial_type, masking_mode, eid, with_reg, force_mask)
+        x = self.encoder(spikes=spikes, neuron_regions=neuron_regions, is_left=is_left, trial_type=trial_type, masking_mode=masking_mode, eid=eid, force_mask=force_mask)
 
         x = self.decoder(x)
 
