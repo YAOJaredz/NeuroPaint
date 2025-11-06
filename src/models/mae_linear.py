@@ -32,19 +32,21 @@ class LinearStitcher(nn.Module):
         self.eids = [str(e) for e in session_list]
         self.areaoi_ind = np.array(areaoi_ind, dtype=int)
         self.n_emb: int = N_EMB
-        self.output_dim: int = (len(areaoi_ind) + 1) * self.n_emb  # +1 for hemisphere embed
+        self.output_dim: int = len(areaoi_ind) * self.n_emb
         
-        self.region_to_indx = {r: i for i,r in enumerate(areaoi_ind)}
+        self.region_to_idx = {r: i for i,r in enumerate(areaoi_ind)}
         
         session_area_linears = {}
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
             for area in self.areaoi_ind:
                 n_neurons = int(np.sum(area_ind_list == area))
-                session_area_linears[f"{session_ind}_{area}"] = nn.Embedding(n_neurons, self.n_emb)
+                if n_neurons == 0:
+                    continue
+                session_area_linears[f"{session_ind}_{area}"] = nn.Linear(n_neurons, self.n_emb)
 
         self.session_area_linears = nn.ModuleDict(session_area_linears)
 
-        self.hemisphere_embed = nn.Embedding(2, self.n_emb)
+        # self.hemisphere_embed = nn.Embedding(2, self.n_emb)
 
 
     def forward(self, x: torch.Tensor, eid: str, neuron_regions: torch.Tensor, is_left: torch.Tensor) -> torch.Tensor:
@@ -53,17 +55,20 @@ class LinearStitcher(nn.Module):
         
         region_emb_x = torch.zeros(B, len(self.areaoi_ind) * self.n_emb * 2, T, device=x.device)
         for area in self.areaoi_ind:
+            if f"{eid}_{area}" not in self.session_area_linears:
+                continue
             sa_embed = self.session_area_linears[f"{eid}_{area}"]
             neuron_mask = torch.where(neuron_regions == area)[0]
             x_area = x[:, neuron_mask, :]  # (B, n_neurons_in_area, T)
 
-            area_ind = self.region_to_indx[area]
+            area_ind = self.region_to_idx[area]
             region_emb_x[:, area_ind * self.n_emb:(area_ind + 1) * self.n_emb, :] = sa_embed(x_area)
 
-        hemi_emb = self.hemisphere_embed(is_left).expand(B, 1, self.n_emb)
-        emb_x = torch.cat([region_emb_x, hemi_emb], dim=1)  # (B, num_regions*n_emb + n_emb, T)
-        
-        return emb_x.transpose(2, 1)  # (B, T, num_regions*n_emb + n_emb)
+        # hemi_emb = self.hemisphere_embed(is_left).expand(B, 1, self.n_emb)
+        # emb_x = torch.cat([region_emb_x, hemi_emb], dim=1)  # (B, num_regions*n_emb + n_emb, T)
+        emb_x = region_emb_x  # (B, num_regions*n_emb, T)
+
+        return emb_x.transpose(2, 1)  # (B, T, num_regions*n_emb)
 
 class LinearEncoder(nn.Module):
     def __init__(
@@ -100,9 +105,9 @@ class LinearEncoder(nn.Module):
         B, T, N = spikes.size()
         x = self.stitcher(spikes, eid, neuron_regions, is_left)  # (B, T, num_regions*n_emb + n_emb)
         
-        x_region = x[:, :, :-self.stitcher.n_emb].view(x.size(0), x.size(1), self.n_regions, self.stitcher.n_emb)  # (B, T, R, n_emb)
+        x_region = x.view(x.size(0), x.size(1), self.n_regions, self.stitcher.n_emb)  # (B, T, R, n_emb)
 
-        x_masked,  mask, mask_R, mask_T, ids_restore_R, ids_restore_T  = random_mask(masking_mode, x_region, r_ratio = self.r_ratio)
+        x_masked, mask, mask_R, mask_T, ids_restore_R, ids_restore_T  = random_mask(masking_mode, x_region, r_ratio = self.r_ratio)
 
         R_kept = int(torch.sum(mask_R[0, :] == 0))
         T_kept = int(torch.sum(mask_T[0, :] == 0))
@@ -115,7 +120,8 @@ class LinearEncoder(nn.Module):
             x_ = torch.gather(x_masked, dim=2, index=ids_restore_R.unsqueeze(1).unsqueeze(-1).repeat(1, T, 1, self.stitcher.n_emb))
 
         x_ = x_.view(B, T, -1)  # (B, T, R_kept*n_emb)
-        x = torch.cat([x_, x[:, :, -self.stitcher.n_emb:]], dim=2)  # (B, T, R_kept*n_emb + n_emb)
+        # x = torch.cat([x_, x[:, :, -self.stitcher.n_emb:]], dim=2)  # (B, T, R_kept*n_emb + n_emb)
+        x = x_
 
         x = self.V_layer(self.U_layer(x))  # (B, T, sum(pr_max_per_region))
         return x
@@ -136,7 +142,9 @@ class LinearDecoder(nn.Module):
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
             for area in self.areaoi_ind:
                 n_neurons = int(np.sum(area_ind_list == area))
-                area_session_linears[f"{session_ind}_{area}"] = nn.Embedding(n_latents_dict[area], n_neurons)
+                if n_neurons == 0:
+                    continue
+                area_session_linears[f"{session_ind}_{area}"] = nn.Linear(n_latents_dict[area], n_neurons)
         self.session_area_linears = nn.ModuleDict(area_session_linears)
         
         self.lat_areas = torch.tensor([area.repeat(n_latents_dict[area]) for area in areaoi_ind]).flatten().tolist()
@@ -145,6 +153,10 @@ class LinearDecoder(nn.Module):
         B, T, _ = x.size()
         output = torch.zeros(B, T, neuron_regions.size(1), device=x.device)
         for area in self.areaoi_ind:
+
+            if f"{eid}_{area}" not in self.session_area_linears:
+                continue
+
             sa_embed = self.session_area_linears[f"{eid}_{area}"]
             output[:, neuron_regions == area] = sa_embed(
                 x[:, :, self.lat_areas == area]
@@ -183,7 +195,7 @@ class Linear_MAE(nn.Module):
     def forward(
         self, 
         spikes:           torch.FloatTensor,  # (bs, seq_len, N)
-        neuron_regions:   Optional[torch.LongTensor] = None,   # (bs, N)
+        neuron_regions:   torch.LongTensor,   # (bs, N)
         is_left:         Optional[torch.LongTensor] = None, # (bs, N)
         trial_type:       Optional[torch.LongTensor] = None, # (bs, )
         masking_mode:     Optional[str] = None,
@@ -194,22 +206,23 @@ class Linear_MAE(nn.Module):
 
         targets = spikes.clone()
 
-        x = self.encoder(spikes=spikes, neuron_regions=neuron_regions, is_left=is_left, trial_type=trial_type, masking_mode=masking_mode, eid=eid, force_mask=force_mask)
-
-        x = self.decoder(x)
+        x = self.encoder.forward(
+            spikes=spikes, neuron_regions=neuron_regions, is_left=is_left, eid=eid, 
+            trial_type=trial_type, masking_mode=masking_mode, force_mask=force_mask
+        )
 
         regularization_loss = torch.mean(torch.abs(torch.diff(x, dim=1)))*0.1
 
-        outputs = self.decoder(x, str(eid), neuron_regions)
+        outputs = self.decoder.forward(x, str(eid), neuron_regions)
+
+        loss = torch.nanmean(self.loss_fn(outputs, targets))
 
         if with_reg:
-            loss = torch.nanmean(self.loss_fn(outputs, targets)) + regularization_loss
-        else:
-            loss = torch.nanmean(self.loss_fn(outputs, targets))
+            loss += regularization_loss
         
         return MAE_Output(
-            loss=loss,
+            loss = loss,
             regularization_loss = regularization_loss,
-            preds=outputs,
-            targets=targets
+            preds = outputs,
+            targets = targets
         )
