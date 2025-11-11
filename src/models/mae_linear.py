@@ -27,7 +27,8 @@ class LinearStitcher(nn.Module):
                 session_list: list[str],
                 area_ind_list_list: list[list[str]],
                 areaoi_ind: np.ndarray,
-                config: DictConfig):
+                config: DictConfig,
+                halfbin: int = 0):
         super().__init__()
         self.eids = [str(e) for e in session_list]
         self.areaoi_ind = np.array(areaoi_ind, dtype=int)
@@ -39,7 +40,7 @@ class LinearStitcher(nn.Module):
         session_area_linears = {}
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
             for area in self.areaoi_ind:
-                n_neurons = int(np.sum(area_ind_list == area))
+                n_neurons = int(np.sum(area_ind_list == area)) * (1 + 2 * halfbin)
                 if n_neurons == 0:
                     continue
                 session_area_linears[f"{session_ind}_{area}"] = nn.Linear(n_neurons, self.n_emb)
