@@ -52,8 +52,8 @@ class LinearStitcher(nn.Module):
     def forward(self, x: torch.Tensor, eid: str, neuron_regions: torch.Tensor, is_left: torch.Tensor) -> torch.Tensor:
         B, T, N = x.size()
         x = x.float()
-
-        x = preprocess_X(x, smooth_w=self.smooth_w, halfbin_X=self.halfbin_X)
+        
+        x = preprocess_X(x.clone(), smooth_w=self.smooth_w, halfbin_X=self.halfbin_X)
         neuron_regions = neuron_regions.repeat_interleave(1 + 2 * self.halfbin_X, dim=1)  # (B, N*(1+2*halfbin_X))
 
         region_emb_x = torch.zeros(B, T, len(self.areaoi_ind) * self.n_channels_per_region, device=x.device, dtype=torch.float32)
@@ -219,14 +219,14 @@ class Linear_MAE(nn.Module):
             trial_type=trial_type, masking_mode=masking_mode, force_mask=force_mask
         )
 
-        regularization_loss = torch.mean(torch.abs(torch.diff(x, dim=1)))*0.1
+        regularization_loss = torch.nanmean(torch.abs(torch.diff(x, dim=1)))
 
         outputs = self.decoder.forward(x, str(eid), neuron_regions)
 
         loss = torch.nanmean(self.loss_fn(outputs, spikes_targets))
-
+        
         if with_reg:
-            loss += regularization_loss
+            loss += regularization_loss * 0.1
         
         return MAE_Output(
             loss = loss,

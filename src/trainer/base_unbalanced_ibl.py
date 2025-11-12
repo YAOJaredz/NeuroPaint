@@ -5,6 +5,8 @@ import os
 from utils.utils import move_batch_to_device, metrics_list, plot_gt_pred, plot_neurons_r2, torch_corrcoef
 from tqdm import tqdm
 
+from constants import IBL_AREAOI
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 class Trainer():
@@ -209,6 +211,12 @@ class Trainer():
         x = self.encoder_stitcher_ema(batch['spikes_data'], str(batch['eid'][0].item()), batch['neuron_regions'], batch['is_left'])
         area_ind_unique = batch['neuron_regions'][0].unique()
 
+        if x.ndim == 3:
+            x = x.view(x.size(0), x.size(1), len(IBL_AREAOI), -1)  # (B, T, R, n_channels_per_region)
+            linear_flag = True
+        else:
+            linear_flag = False
+
         for i in range(len(area_ind_unique)):
             area_i = area_ind_unique[i].item()
             for j in range(i, len(area_ind_unique)):
@@ -225,12 +233,16 @@ class Trainer():
 
                     if trial_num.item() < 5:
                         continue    
-                
-                    x_i = x[trial_type_flag,:,i,:].view(-1, x.shape[-1]) # (B*T, n_channels_per_region)
-                    x_j = x[trial_type_flag,:,j,:].view(-1, x.shape[-1]) 
-
-                    kernel = torch_corrcoef(x_i, x_j) # (n_channels_per_region, n_channels_per_region)
                     
+                    if linear_flag:
+                        x_i = x[trial_type_flag, :, area_i, :].view(-1, x.shape[-1])  # (B*T, n_channels_per_region)
+                        x_j = x[trial_type_flag, :, area_j, :].view(-1, x.shape[-1])
+                    else:
+                        x_i = x[trial_type_flag, :, i, :].view(-1, x.shape[-1])  # (B*T, n_channels_per_region)
+                        x_j = x[trial_type_flag, :, j, :].view(-1, x.shape[-1])
+
+                    kernel = torch_corrcoef(x_i, x_j)  # (n_channels_per_region, n_channels_per_region)
+
                     key_tmp = frozenset({area_i, area_j})
                     stored_kernel = self.target_kernel_stored[trial_type][key_tmp]['kernel']
                     count = self.target_kernel_stored[trial_type][key_tmp]['count']
@@ -244,6 +256,12 @@ class Trainer():
 
         consistency_loss_tmp = 0
         kernel_num = 0
+        
+        if x.ndim == 3:
+            x = x.view(x.size(0), x.size(1), len(IBL_AREAOI), -1)  # (B, T, R, n_channels_per_region)
+            linear_flag = True
+        else:
+            linear_flag = False
 
         cos = torch.nn.CosineSimilarity(dim=0)
         triu_indices = torch.triu_indices(x.shape[-1], x.shape[-1], offset=1)
@@ -264,9 +282,13 @@ class Trainer():
 
                     if trial_num.item() < 5:
                         continue 
-
-                    x_i = x[trial_type_flag,:,i,:].view(-1, x.shape[-1])
-                    x_j = x[trial_type_flag,:,j,:].view(-1, x.shape[-1])
+                    
+                    if linear_flag:
+                        x_i = x[trial_type_flag, :, area_i, :].view(-1, x.shape[-1])
+                        x_j = x[trial_type_flag, :, area_j, :].view(-1, x.shape[-1])
+                    else:
+                        x_i = x[trial_type_flag,:,i,:].view(-1, x.shape[-1])
+                        x_j = x[trial_type_flag,:,j,:].view(-1, x.shape[-1])
 
                     kernel = torch_corrcoef(x_i, x_j)
                     key_tmp = frozenset({area_i, area_j})
