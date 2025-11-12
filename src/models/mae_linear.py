@@ -12,9 +12,6 @@ from utils.config_utils import DictConfig
 # from models.mae_with_hemisphere_embed_and_diff_dim_per_area import StitchDecoder
 from utils.mask import random_mask
 
-# FIXME: placeholder for n_emb
-N_EMB = 32
-
 @dataclass
 class MAE_Output(ModelOutput):
     loss: Optional[torch.Tensor] = None
@@ -27,20 +24,20 @@ class LinearStitcher(nn.Module):
                 session_list: list[str],
                 area_ind_list_list: list[list[str]],
                 areaoi_ind: np.ndarray,
-                config: DictConfig,
-                halfbin: int = 0):
+                config: DictConfig):
         super().__init__()
-        self.eids = [str(e) for e in session_list]
+        self.eids = list(map(str, session_list))
         self.areaoi_ind = np.array(areaoi_ind, dtype=int)
-        self.n_emb: int = N_EMB
+        self.n_emb: int = config.stitcher.n_emb            # type: ignore
         self.output_dim: int = len(areaoi_ind) * self.n_emb
+        self.halfbin: int = config.stitcher.halfbin             # type: ignore
         
         self.region_to_idx = {r: i for i,r in enumerate(areaoi_ind)}
         
         session_area_linears = {}
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
             for area in self.areaoi_ind:
-                n_neurons = int(np.sum(area_ind_list == area)) * (1 + 2 * halfbin)
+                n_neurons = int(np.sum(area_ind_list == area)) * (1 + 2 * self.halfbin)
                 if n_neurons == 0:
                     continue
                 session_area_linears[f"{session_ind}_{area}"] = nn.Linear(n_neurons, self.n_emb)
@@ -79,8 +76,8 @@ class LinearEncoder(nn.Module):
     ):
         super().__init__()
         
-        self.hidden_size = 128
-        self.r_ratio = 0.1
+        self.hidden_size: int = config.hidden_size       # type: ignore
+        self.r_ratio: float = config.masker.r_ratio             # type: ignore
         
         self.n_regions = len(kwargs['areaoi_ind'])
         if 'pr_max_dict' in kwargs:
@@ -88,7 +85,7 @@ class LinearEncoder(nn.Module):
         else:
             self.n_lat = {k: 20 for k in kwargs['areaoi_ind']}
 
-        self.stitcher = LinearStitcher(kwargs['eids'], kwargs['area_ind_list_list'], kwargs['areaoi_ind'], config)
+        self.stitcher = LinearStitcher(kwargs['eids'], kwargs['area_ind_list_list'], kwargs['areaoi_ind'], config.stitcher)
 
         self.U_layer = nn.Linear(self.stitcher.output_dim, self.hidden_size)
         self.V_layer = nn.Linear(self.hidden_size, np.sum(list(self.n_lat.values())))
@@ -178,10 +175,7 @@ class Linear_MAE(nn.Module):
             kwargs['pr_max_dict'] = lat_dict
             
         # Build encoder
-        self.encoder = LinearEncoder(config, **kwargs)
-
-        #stitcher
-        
+        self.encoder = LinearEncoder(config.encoder, **kwargs)
         
         self.decoder = LinearDecoder(
             kwargs['eids'],
@@ -190,7 +184,6 @@ class Linear_MAE(nn.Module):
             kwargs['areaoi_ind'],
         )
 
-        # Build loss function
         self.loss_fn = nn.PoissonNLLLoss(reduction="none", log_input=True)
         
     def forward(

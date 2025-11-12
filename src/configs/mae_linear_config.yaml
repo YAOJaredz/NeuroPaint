@@ -1,0 +1,14 @@
+model_class: Linear_MAE
+
+
+encoder:
+
+  hidden_size: 128
+
+  masker:
+    r_ratio: 0.1
+    mask_mode: region
+
+  stitcher:
+    halfbin: 1
+    n_emb: 32
