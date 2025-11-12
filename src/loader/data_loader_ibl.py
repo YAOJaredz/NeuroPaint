@@ -10,6 +10,7 @@ from one.api import ONE
 from utils.ibl_data_utils import *
 from torch.utils.data import DataLoader, RandomSampler, DistributedSampler
 from loader.loader_utils import DatasetDataLoader
+from constants import DATA_INFO_PATH, IBL_AREAOI, IBL_DATA_PATH, DATA_PATH
 
 #%%
 # load session_info.csv as pandas dataframe
@@ -27,12 +28,12 @@ def load_session_data(session_ind, session_idx):
     trial_type: K
     '''
 
-    with open(f"/work/hdd/bdye/jyao7/data/tables_and_infos/ibl_eids.txt") as file:
+    with open(DATA_INFO_PATH / "ibl_eids.txt") as file:
         eids = [line.rstrip() for line in file]
 
     print(f"EID {session_ind}")
 
-    files = sorted(glob.glob('/work/hdd/bdye/jyao7/data/loaded_ibl_data/session_ind_*.pickle'))
+    files = sorted(glob.glob(str(IBL_DATA_PATH / "session_ind_*.pickle")))
     session_ind_list = [int(file.split('_')[-1].split('.')[0]) for file in files]
     if session_idx not in session_ind_list:
         params = {
@@ -46,7 +47,7 @@ def load_session_data(session_ind, session_idx):
             base_url="https://openalyx.internationalbrainlab.org",
             password="international", 
             silent=True,
-            cache_dir="/work/hdd/bdye/jyao7/data/ibl_raw/"
+            cache_dir=DATA_PATH / "ibl_raw/"
         )
         neural_dict, behave_dict, meta_dict, trials_dict, _ = prepare_data(
             one, session_ind, params, n_workers=1
@@ -93,7 +94,7 @@ def load_session_data(session_ind, session_idx):
         trial_type = align_bin_beh["choice"]
 
         # Save data
-        with open('/work/hdd/bdye/jyao7/data/loaded_ibl_data/session_ind_{}.pickle'.format(session_idx), 'wb') as f:
+        with open(IBL_DATA_PATH / f"session_ind_{session_idx}.pickle", 'wb') as f:
             pickle.dump([spike_data, behavior, area_ind_list, is_left, is_ALM, trial_type], f)
     else:
         print(f"Loading EID {session_ind} from cached data")
@@ -223,9 +224,9 @@ def make_loader(
     rank=0, 
     world_size=1
 ):
-    path = "data/tables_and_infos/"
+    path = DATA_INFO_PATH
 
-    areaoi = ["PO", "LP", "DG", "CA1", "VISa", "VPM", "APN", "MRN"]
+    areaoi = IBL_AREAOI
     region_to_ind = {region: i for i, region in enumerate(areaoi)}
     
     datasets = {'train': [], 'val': [], 'test': []}

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import os
 import warnings
-from models.mae_with_hemisphere_embed_and_diff_dim_per_area import MAE_with_region_stitcher, NeuralStitcher_cross_att
+from models.mae_linear import Linear_MAE, LinearStitcher
 from loader.data_loader_ibl import make_loader
 from utils.config_utils import config_from_kwargs, update_config
 from utils.utils import set_seed
@@ -11,7 +11,6 @@ from torch.optim.lr_scheduler import OneCycleLR
 from trainer.make_unbalanced_ibl import make_trainer
 import argparse
 import pickle
-import yaml
 from constants import (
     CONFIG_LINEAR_MAE_PATH, 
     BASE_PATH,
@@ -85,8 +84,8 @@ def main(eids, with_reg):
     meta_data['num_sessions'] = len(eids)
     meta_data['eids'] = [eid_idx for eid_idx, eid in enumerate(eids)]
 
-    with open(IBL_N_LATANT_PATH, 'r') as f:
-        pr_max_dict = yaml.safe_load(f)
+    with open(IBL_N_LATANT_PATH, 'rb') as f:
+        pr_max_dict = pickle.load(f)
 
     meta_data['pr_max_dict'] = pr_max_dict
     
@@ -94,17 +93,86 @@ def main(eids, with_reg):
     meta_data['trial_type_values'] = trial_type_values
     
     config = update_config(config, meta_data)
-    
-    config = update_config(config, meta_data) # so that everything is saved in the config file
 
     train_dataloader = dataloader['train']
     val_dataloader = dataloader['val']
-    #test_dataloader = dataloader['test']
+    test_dataloader = dataloader['test']
 
     print('check heldout info of dataset')
     print(heldout_info_list)
+    
+    if train:
+        log_dir = \
+            base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}" / f"consistency_{consistency}" / f"num_session_{num_train_sessions}"
+        os.makedirs(log_dir, exist_ok=True)
+    
+        if not torch.cuda.is_available():
+            print("CUDA is not available. Exiting.")
+            exit()
+        else:
+            print("CUDA is available. Using GPU.")
+        
+        if config.wandb.use and accelerator.is_local_main_process and accelerator.process_index == 0:
+            import wandb
+            wandb.init(project=config.wandb.project, # type: ignore
+                       dir="/root_folder/wandb", 
+                    entity=config.wandb.entity, # type: ignore
+                    config=config, 
+                    name=f"lin_mae-ibl-reg_{with_reg}-consistency_{consistency}-sessions_{num_train_sessions}"
+                    )
+        
+        model = Linear_MAE(config.model, **meta_data)
+        
+        if load_previous_model:
+            previous_model_path = \
+                base_path / "finetune" / "ibl_linear_mae" / f"with_reg_{with_reg}" / f"consistency_{consistency}" / \
+                    f"num_session_{num_train_sessions}" / str(hash(tuple(eids))) / 'model_best.pt'
+            state_dict = torch.load(previous_model_path, map_location=accelerator.device)['model']
+            model.load_state_dict(state_dict)
 
-    return config
+        optimizer = torch.optim.AdamW(model.parameters(), lr=config['optimizer']['lr'], weight_decay=config['optimizer']['wd'], eps=config['optimizer']['eps'])
+        lr_scheduler = OneCycleLR(
+                        optimizer=optimizer,
+                        total_steps=config['training']['num_epochs'] * len(train_dataloader) // config['optimizer']['gradient_accumulation_steps'],
+                        max_lr=config['optimizer']['lr'],
+                        pct_start=config['optimizer']['warmup_pct'],
+                        div_factor=config['optimizer']['div_factor'],
+                    )
+        
+        model, optimizer, train_dataloader, val_dataloader = accelerator.prepare(model, optimizer, train_dataloader, val_dataloader)
+        
+        if consistency:
+            encoder_stitcher_ema = LinearStitcher(meta_data['eids'], meta_data['area_ind_list_list'], meta_data['areaoi_ind'], config.model.encoder.stitcher) # type: ignore
+            encoder_stitcher_ema = accelerator.prepare(encoder_stitcher_ema)
+            for param in encoder_stitcher_ema.parameters():
+                param.detach_() 
+        
+        trainer_kwargs = {
+            "log_dir": log_dir,
+            "accelerator": accelerator,
+            "lr_scheduler": lr_scheduler,
+            "config": config,
+            "multi_gpu": multi_gpu,
+            "with_reg": with_reg,
+        }
+        
+        trainer = make_trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=val_dataloader,
+            optimizer=optimizer,
+            consistency = consistency,
+            encoder_stitcher_ema = encoder_stitcher_ema if consistency else None,
+            **trainer_kwargs,
+            **meta_data
+        )
+        
+        print(accelerator.device)
+        
+        # train loop
+        trainer.train()
+
+        print("Training completed.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -117,9 +185,7 @@ if __name__ == "__main__":
     eids = [
         'f312aaec-3b6f-44b3-86b4-3a0c119c0438', 
         '51e53aff-1d5d-4182-a684-aba783d50ae5', 
-        '88224abb-5746-431f-9c17-17d7ef806e6a', 
-        'c7248e09-8c0d-40f2-9eb4-700a8973d8c8', 
-        '4b00df29-3769-43be-bb40-128b1cba6d35'
+        '88224abb-5746-431f-9c17-17d7ef806e6a'
         ]
     with_reg = True
     main(eids, with_reg)

@@ -1,5 +1,6 @@
 model_class: Linear_MAE
 
+smooth_w: 5
 
 encoder:
 
@@ -10,5 +11,5 @@ encoder:
     mask_mode: region
 
   stitcher:
-    halfbin: 1
-    n_emb: 32
+    halfbin_X: 1
+    n_channels_per_region: 32
