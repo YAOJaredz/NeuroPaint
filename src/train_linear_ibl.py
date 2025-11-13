@@ -23,14 +23,14 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ["TORCH_USE_CUDA_DSA"] = "1"
 os.environ["WANDB_IGNORE_COPY_ERR"] = "true"
 
-def main(eids, with_reg):
+def main(eids: list[str], with_reg: bool, consistency: bool):
     print(f"eids: {eids}")
     print(f"with_reg: {with_reg}")
-    
+    print(f"consistency: {consistency}")
+
     torch.cuda.empty_cache()
     
     multi_gpu = False
-    consistency = True
     load_previous_model = False
 
     base_path = BASE_PATH
@@ -178,15 +178,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--eids', nargs='+', required=True, help='List of eids for training sessions')
     parser.add_argument('--with_reg', action='store_true', help='Whether to use regularization')
+    parser.add_argument('--consistency', action='store_true', help='Whether to use consistency')
     args = parser.parse_args()
-    
-    main(args.eids, args.with_reg)
-    
+
+    main(args.eids, args.with_reg, args.consistency)
+
     # eids = [
     #     'f312aaec-3b6f-44b3-86b4-3a0c119c0438', 
     #     '51e53aff-1d5d-4182-a684-aba783d50ae5', 
     #     '88224abb-5746-431f-9c17-17d7ef806e6a'
     #     ]
     # with_reg = True
-    # main(eids, with_reg)
-    
+    # consistency = True
+    # main(eids, with_reg, consistency)
