@@ -176,17 +176,17 @@ def main(eids, with_reg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    # parser.add_argument('--eids', nargs='+', required=True, help='List of eids for training sessions')
-    # parser.add_argument('--with_reg', action='store_true', help='Whether to use regularization')
-    # args = parser.parse_args()
+    parser.add_argument('--eids', nargs='+', required=True, help='List of eids for training sessions')
+    parser.add_argument('--with_reg', action='store_true', help='Whether to use regularization')
+    args = parser.parse_args()
     
-    # main(args.eids, args.with_reg)
+    main(args.eids, args.with_reg)
     
-    eids = [
-        'f312aaec-3b6f-44b3-86b4-3a0c119c0438', 
-        '51e53aff-1d5d-4182-a684-aba783d50ae5', 
-        '88224abb-5746-431f-9c17-17d7ef806e6a'
-        ]
-    with_reg = True
-    main(eids, with_reg)
+    # eids = [
+    #     'f312aaec-3b6f-44b3-86b4-3a0c119c0438', 
+    #     '51e53aff-1d5d-4182-a684-aba783d50ae5', 
+    #     '88224abb-5746-431f-9c17-17d7ef806e6a'
+    #     ]
+    # with_reg = True
+    # main(eids, with_reg)
     
