@@ -41,6 +41,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
 
     num_epochs = 1000
     batch_size = 16
+    lr = 0.001
     use_wandb = True
     
     kwargs = {
@@ -54,6 +55,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
     config['training']['num_epochs'] = num_epochs
     config['wandb']['use'] = use_wandb
     config['wandb']['project'] = 'lin-mae-ibl'
+    config['optimizer']['lr'] = lr
     
     meta_data = {}
     

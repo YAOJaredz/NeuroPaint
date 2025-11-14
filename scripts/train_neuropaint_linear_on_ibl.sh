@@ -32,4 +32,4 @@ eids=$(python -c "with open('$session_order_file', 'r') as file: print('\n'.join
 # Print loaded eids for debugging
 echo "Loaded eids: $eids"
 
-python -u src/train_linear_ibl.py --eids $eids
+python -u src/train_linear_ibl.py --eids $eids --with_reg
