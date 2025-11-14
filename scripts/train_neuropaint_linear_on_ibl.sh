@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --time=12:00:00
 #SBATCH --mem=100000
-#SBATCH --partition=gpuA100x4,gpuA40x4,gpuA100x8
+###SBATCH --partition=gpuA100x4,gpuA40x4,gpuA100x8,gpuH200x8
 #SBATCH --chdir=/u/jyao7/NeuroPaint
 
 echo "Running on $(hostname)"          # Print the name of the current node
@@ -32,4 +32,4 @@ eids=$(python -c "with open('$session_order_file', 'r') as file: print('\n'.join
 # Print loaded eids for debugging
 echo "Loaded eids: $eids"
 
-python -u src/train_linear_ibl.py --eids $eids --with_reg
+python -u src/train_linear_ibl.py --eids $eids

@@ -9,9 +9,10 @@ import pickle
 
 from models.model_output import ModelOutput
 from utils.config_utils import DictConfig
-# from models.mae_with_hemisphere_embed_and_diff_dim_per_area import StitchDecoder
+from models.mae_with_hemisphere_embed_and_diff_dim_per_area import StitchDecoder
 from utils.mask import random_mask
-from utils.utils_linear import preprocess_X, preprocess_y
+from utils.utils_linear import preprocess_X, preprocess_y, poisson_nll_loss
+from constants import IBL_AREAOI
 
 @dataclass
 class MAE_Output(ModelOutput):
@@ -51,7 +52,6 @@ class LinearStitcher(nn.Module):
 
     def forward(self, x: torch.Tensor, eid: str, neuron_regions: torch.Tensor, is_left: torch.Tensor) -> torch.Tensor:
         B, T, N = x.size()
-        x = x.float()
         
         x = preprocess_X(x.clone(), smooth_w=self.smooth_w, halfbin_X=self.halfbin_X)
         neuron_regions = neuron_regions.repeat_interleave(1 + 2 * self.halfbin_X, dim=1)  # (B, N*(1+2*halfbin_X))
@@ -167,11 +167,12 @@ class LinearDecoder(nn.Module):
                 continue
 
             sa_embed = self.session_area_linears[f"{eid}_{area}"]
-            output[:, neuron_regions == area] = sa_embed(
-                x[:, :, self.lat_areas == area]
-            )
+            neuro_mask = torch.where(neuron_regions[0] == area)[0]
+            embed_mask = torch.where(self.lat_areas == area)[0]
+            output[:, :, neuro_mask] = sa_embed(x[:, :, embed_mask])
 
         return output
+    
 
 class Linear_MAE(nn.Module):
     def __init__(
@@ -183,18 +184,33 @@ class Linear_MAE(nn.Module):
 
         self.smooth_w: float = config.encoder.stitcher.smooth_w           # type: ignore
 
-        if 'pr_max_dict' not in kwargs:
+        if 'pr_max_dict' not in kwargs or True:
             lat_dict = {k: 20 for k in kwargs['areaoi_ind']}
             kwargs['pr_max_dict'] = lat_dict
             
         # Build encoder
         self.encoder = LinearEncoder(config.encoder, **kwargs)
         
-        self.decoder = LinearDecoder(
-            kwargs['eids'],
-            kwargs['pr_max_dict'],
-            kwargs['area_ind_list_list'],
-            kwargs['areaoi_ind'],
+        # self.decoder = LinearDecoder(
+        #     kwargs['eids'],
+        #     kwargs['pr_max_dict'],
+        #     kwargs['area_ind_list_list'],
+        #     kwargs['areaoi_ind'],
+        # )
+        
+        # self.decoder = LinearDecoder(
+        #     session_list=kwargs['eids'],
+        #     n_latents_dict=kwargs['pr_max_dict'],
+        #     area_ind_list_list=kwargs['area_ind_list_list'],
+        #     areaoi_ind=kwargs['areaoi_ind'],
+        # )
+        
+        self.decoder = StitchDecoder(
+            session_list=kwargs['eids'],
+            n_channels=20,
+            area_ind_list_list=kwargs['area_ind_list_list'],
+            areaoi_ind=kwargs['areaoi_ind'],
+            pr_max_dict=kwargs['pr_max_dict'],
         )
 
         self.loss_fn = nn.PoissonNLLLoss(reduction="none", log_input=True)
@@ -207,23 +223,33 @@ class Linear_MAE(nn.Module):
         is_left:         Optional[torch.LongTensor] = None, # (bs, N)
         trial_type:       Optional[torch.LongTensor] = None, # (bs, )
         masking_mode:     Optional[str] = None,
-        eid:              Optional[str] = None,
+        eid:              Optional[torch.Tensor] = None,
         with_reg:       Optional[bool] = False,
         force_mask:       Optional[dict] = None
     ) -> MAE_Output:  
 
+        B, T, N = spikes.size()
+        eid_str = str(eid.item()) if eid is not None else None
+        
         spikes_targets = preprocess_y(spikes, smooth_w=self.smooth_w)  # (bs, seq_len, N)
 
         x = self.encoder.forward(
-            spikes=spikes, neuron_regions=neuron_regions, is_left=is_left, eid=eid, 
+            spikes=spikes, neuron_regions=neuron_regions, is_left=is_left, eid=eid_str,
             trial_type=trial_type, masking_mode=masking_mode, force_mask=force_mask
         )
 
         regularization_loss = torch.nanmean(torch.abs(torch.diff(x, dim=1)))
 
-        outputs = self.decoder.forward(x, str(eid), neuron_regions)
+        # print(f"Encoder output requires_grad: {x.requires_grad}, grad_fn: {x.grad_fn}")
+
+        # outputs = self.decoder.forward(x, str(eid), neuron_regions)
+        outputs = self.decoder(x.view(B, T, len(IBL_AREAOI), -1), eid_str, neuron_regions)
+        # print(f"Decoder output requires_grad: {outputs.requires_grad}, grad_fn: {outputs.grad_fn}")
+        # print(f"Targets requires_grad: {spikes_targets.requires_grad}")
 
         loss = torch.nanmean(self.loss_fn(outputs, spikes_targets))
+        # print(f"Loss requires_grad: {loss.requires_grad}, grad_fn: {loss.grad_fn}")
+        # print(f"Loss value: {loss.item()}")
         
         if with_reg:
             loss += regularization_loss * 0.1

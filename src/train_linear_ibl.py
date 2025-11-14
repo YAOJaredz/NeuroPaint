@@ -188,6 +188,6 @@ if __name__ == "__main__":
     #     '51e53aff-1d5d-4182-a684-aba783d50ae5', 
     #     '88224abb-5746-431f-9c17-17d7ef806e6a'
     #     ]
-    # with_reg = True
-    # consistency = True
+    # with_reg = False
+    # consistency = False
     # main(eids, with_reg, consistency)
