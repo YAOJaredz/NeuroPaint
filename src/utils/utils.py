@@ -80,11 +80,22 @@ def plot_neurons_r2(gt, pred, epoch=0, neuron_idx=[]):
 def metrics_list(gt, pred, metrics=["r2", "rsquared", "mse", "mae", "acc"], device="cpu"):
     results = {}
     if "r2" in metrics:
-        r2_list = []
-        for i in range(gt.shape[0]):
-            r2s = [r2_score_torch(y_true=gt[i].T[k], y_pred=pred[i].T[k], device=device) for k in range(len(gt[i].T))]
-            r2_list.append(np.ma.masked_invalid(r2s).mean())
-        r2 = np.nanmean(r2_list)
+        gt   = gt.to(device).float()
+        pred = pred.to(device).float()
+
+        ss_res = ((gt - pred) ** 2).sum(dim=1)             # (B, N)
+        gt_mean = gt.mean(dim=1, keepdim=True)             # (B, 1, N)
+        ss_tot  = ((gt - gt_mean) ** 2).sum(dim=1)         # (B, N)
+
+        r2 = torch.zeros_like(ss_res)                      # (B, N)
+        valid = ss_tot > 0
+        r2[valid] = 1.0 - ss_res[valid] / ss_tot[valid]
+
+        r2_np = r2.detach().cpu().numpy()                  # (B, N)
+        r2_masked_per_sample = np.ma.masked_invalid(r2_np)  # (B,)
+        r2_masked_per_sample = r2_masked_per_sample.mean(axis=1).filled(np.nan)  # (B,)
+        r2 = float(np.nanmean(r2_masked_per_sample))
+        
         results["r2"] = r2
     if "rsquared" in metrics:
         r2_list = []
