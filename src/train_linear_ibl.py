@@ -39,9 +39,9 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
 
     mask_mode = 'region' # 'time' or 'region' or 'time_region'
 
-    num_epochs = 1000
-    batch_size = 16
-    lr = 0.001
+    num_epochs = 500
+    batch_size = 32
+    lr = 0.01
     use_wandb = True
     
     kwargs = {
