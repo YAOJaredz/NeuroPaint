@@ -22,6 +22,7 @@ class MAE_Output(ModelOutput):
     targets: Optional[torch.Tensor] = None
 
 class LinearStitcher(nn.Module):
+    """ Maps neuron activity to region embeddings for session-area combinations. """
     def __init__(self, 
                 session_list: list[str],
                 area_ind_list_list: list[list[str]],
@@ -74,6 +75,7 @@ class LinearStitcher(nn.Module):
         return emb_x  # (B, T, num_regions*n_emb)
 
 class LinearEncoder(nn.Module):
+    """ Maps neuron activity to latent representations. """
     def __init__(
         self, 
         config: DictConfig,
@@ -136,6 +138,7 @@ class LinearEncoder(nn.Module):
         return x
 
 class LinearDecoder(nn.Module):
+    """ Maps latent representations to neuron activity for session-area combinations. """
     def __init__(self,
                  session_list: list[str],
                  n_latents_dict: dict[int, int],
@@ -143,9 +146,9 @@ class LinearDecoder(nn.Module):
                  areaoi_ind: np.ndarray):
         super().__init__()
         self.session_list = session_list
-        self.n_latents_dict = n_latents_dict
+        self.n_latents_dict = {k: int(n_latents_dict[k]) for k in n_latents_dict}
         self.area_ind_list_list = area_ind_list_list
-        self.areaoi_ind = areaoi_ind
+        self.areaoi_ind = np.array(areaoi_ind, dtype=int)
         
         area_session_linears = {}
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
@@ -153,10 +156,10 @@ class LinearDecoder(nn.Module):
                 n_neurons = int(np.sum(area_ind_list == area))
                 if n_neurons == 0:
                     continue
-                area_session_linears[f"{session_ind}_{area}"] = nn.Linear(n_latents_dict[area], n_neurons)
+                area_session_linears[f"{session_ind}_{area}"] = nn.Linear(self.n_latents_dict[area], n_neurons)
         self.session_area_linears = nn.ModuleDict(area_session_linears)
-        
-        self.lat_areas = np.concatenate([np.repeat(area, n_latents_dict[area]) for area in areaoi_ind]).tolist()
+
+        self.lat_areas = np.concatenate([np.repeat(area, self.n_latents_dict[area]) for area in areaoi_ind]).tolist()
 
     def forward(self, x: torch.Tensor, eid: str, neuron_regions: torch.Tensor) -> torch.Tensor:
         B, T, _ = x.size()
@@ -168,13 +171,14 @@ class LinearDecoder(nn.Module):
 
             sa_embed = self.session_area_linears[f"{eid}_{area}"]
             neuro_mask = torch.where(neuron_regions[0] == area)[0]
-            embed_mask = torch.where(self.lat_areas == area)[0]
-            output[:, :, neuro_mask] = sa_embed(x[:, :, embed_mask])
+            x_area = x[:, :, self.lat_areas == area]  # (B, T, n_latents_in_area)
+            output[:, :, neuro_mask] = sa_embed(x_area)
 
         return output
     
 
 class Linear_MAE(nn.Module):
+    """ Linear MAE model for neural activity reconstruction. """
     def __init__(
         self, 
         config: DictConfig,
@@ -184,34 +188,27 @@ class Linear_MAE(nn.Module):
 
         self.smooth_w: float = config.encoder.stitcher.smooth_w           # type: ignore
 
-        if 'pr_max_dict' not in kwargs or True:
+        if 'pr_max_dict' not in kwargs:
             lat_dict = {k: 20 for k in kwargs['areaoi_ind']}
             kwargs['pr_max_dict'] = lat_dict
             
         # Build encoder
         self.encoder = LinearEncoder(config.encoder, **kwargs)
         
-        # self.decoder = LinearDecoder(
-        #     kwargs['eids'],
-        #     kwargs['pr_max_dict'],
-        #     kwargs['area_ind_list_list'],
-        #     kwargs['areaoi_ind'],
-        # )
-        
-        # self.decoder = LinearDecoder(
-        #     session_list=kwargs['eids'],
-        #     n_latents_dict=kwargs['pr_max_dict'],
-        #     area_ind_list_list=kwargs['area_ind_list_list'],
-        #     areaoi_ind=kwargs['areaoi_ind'],
-        # )
-        
-        self.decoder = StitchDecoder(
+        self.decoder = LinearDecoder(
             session_list=kwargs['eids'],
-            n_channels=20,
+            n_latents_dict=kwargs['pr_max_dict'],
             area_ind_list_list=kwargs['area_ind_list_list'],
             areaoi_ind=kwargs['areaoi_ind'],
-            pr_max_dict=kwargs['pr_max_dict'],
         )
+        
+        # self.decoder = StitchDecoder(
+        #     session_list=kwargs['eids'],
+        #     n_channels=20,
+        #     area_ind_list_list=kwargs['area_ind_list_list'],
+        #     areaoi_ind=kwargs['areaoi_ind'],
+        #     pr_max_dict=kwargs['pr_max_dict'],
+        # )
 
         self.loss_fn = nn.PoissonNLLLoss(reduction="none", log_input=True)
         
@@ -229,7 +226,10 @@ class Linear_MAE(nn.Module):
     ) -> MAE_Output:  
 
         B, T, N = spikes.size()
-        eid_str = str(eid.item()) if eid is not None else None
+        if eid is None:
+            raise ValueError("eid must be provided")
+        else:
+            eid_str = str(eid.item())
         
         spikes_targets = preprocess_y(spikes, smooth_w=self.smooth_w)  # (bs, seq_len, N)
 
@@ -242,8 +242,8 @@ class Linear_MAE(nn.Module):
 
         # print(f"Encoder output requires_grad: {x.requires_grad}, grad_fn: {x.grad_fn}")
 
-        # outputs = self.decoder.forward(x, str(eid), neuron_regions)
-        outputs = self.decoder(x.view(B, T, len(IBL_AREAOI), -1), eid_str, neuron_regions)
+        outputs = self.decoder.forward(x, eid_str, neuron_regions)
+        # outputs = self.decoder(x.view(B, T, len(IBL_AREAOI), -1), eid_str, neuron_regions)
         # print(f"Decoder output requires_grad: {outputs.requires_grad}, grad_fn: {outputs.grad_fn}")
         # print(f"Targets requires_grad: {spikes_targets.requires_grad}")
 
