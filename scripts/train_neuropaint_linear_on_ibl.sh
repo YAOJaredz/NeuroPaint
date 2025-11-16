@@ -6,9 +6,9 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=2
-#SBATCH --time=12:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mem=100000
-###SBATCH --partition=gpuA100x4,gpuA40x4,gpuA100x8,gpuH200x8
+#SBATCH --partition=gpuA40x4,gpuA100x4,gpuA100x8,gpuH200x8
 #SBATCH --chdir=/u/jyao7/NeuroPaint
 
 echo "Running on $(hostname)"          # Print the name of the current node

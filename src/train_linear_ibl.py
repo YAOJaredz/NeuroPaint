@@ -41,7 +41,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
 
     num_epochs = 500
     batch_size = 32
-    lr = 0.01
+    lr = 0.001
     use_wandb = True
     
     kwargs = {
