@@ -246,6 +246,7 @@ class Linear_MAE(nn.Module):
         # outputs = self.decoder(x.view(B, T, len(IBL_AREAOI), -1), eid_str, neuron_regions)
         # print(f"Decoder output requires_grad: {outputs.requires_grad}, grad_fn: {outputs.grad_fn}")
         # print(f"Targets requires_grad: {spikes_targets.requires_grad}")
+        outputs = torch.clamp(outputs, max=5.3)
 
         loss = torch.nanmean(self.loss_fn(outputs, spikes_targets))
         # print(f"Loss requires_grad: {loss.requires_grad}, grad_fn: {loss.grad_fn}")

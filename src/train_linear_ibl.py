@@ -39,8 +39,9 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
 
     mask_mode = 'region' # 'time' or 'region' or 'time_region'
 
-    num_epochs = 750
-    batch_size = 32
+    num_epochs = 500
+    batch_size = 64
+    lr = 1e-3
     use_wandb = True
     
     kwargs = {
@@ -54,6 +55,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
     config['training']['num_epochs'] = num_epochs
     config['wandb']['use'] = use_wandb
     config['wandb']['project'] = 'lin-mae-ibl'
+    config['optimizer']['lr'] = lr
     
     meta_data = {}
     
