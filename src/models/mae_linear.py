@@ -201,14 +201,6 @@ class Linear_MAE(nn.Module):
             area_ind_list_list=kwargs['area_ind_list_list'],
             areaoi_ind=kwargs['areaoi_ind'],
         )
-        
-        # self.decoder = StitchDecoder(
-        #     session_list=kwargs['eids'],
-        #     n_channels=20,
-        #     area_ind_list_list=kwargs['area_ind_list_list'],
-        #     areaoi_ind=kwargs['areaoi_ind'],
-        #     pr_max_dict=kwargs['pr_max_dict'],
-        # )
 
         self.loss_fn = nn.PoissonNLLLoss(reduction="none", log_input=True)
         
@@ -231,7 +223,7 @@ class Linear_MAE(nn.Module):
         else:
             eid_str = str(eid.item())
         
-        spikes_targets = preprocess_y(spikes, smooth_w=self.smooth_w)  # (bs, seq_len, N)
+        spikes_targets = spikes.clone()
 
         x = self.encoder.forward(
             spikes=spikes, neuron_regions=neuron_regions, is_left=is_left, eid=eid_str,
@@ -240,17 +232,10 @@ class Linear_MAE(nn.Module):
 
         regularization_loss = torch.nanmean(torch.abs(torch.diff(x, dim=1)))
 
-        # print(f"Encoder output requires_grad: {x.requires_grad}, grad_fn: {x.grad_fn}")
-
         outputs = self.decoder.forward(x, eid_str, neuron_regions)
-        # outputs = self.decoder(x.view(B, T, len(IBL_AREAOI), -1), eid_str, neuron_regions)
-        # print(f"Decoder output requires_grad: {outputs.requires_grad}, grad_fn: {outputs.grad_fn}")
-        # print(f"Targets requires_grad: {spikes_targets.requires_grad}")
         outputs = torch.clamp(outputs, max=5.3)
 
         loss = torch.nanmean(self.loss_fn(outputs, spikes_targets))
-        # print(f"Loss requires_grad: {loss.requires_grad}, grad_fn: {loss.grad_fn}")
-        # print(f"Loss value: {loss.item()}")
         
         if with_reg:
             loss += regularization_loss * 0.1

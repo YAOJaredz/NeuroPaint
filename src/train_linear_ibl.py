@@ -7,7 +7,7 @@ from loader.data_loader_ibl import make_loader
 from utils.config_utils import config_from_kwargs, update_config
 from utils.utils import set_seed
 from accelerate import Accelerator
-from torch.optim.lr_scheduler import OneCycleLR
+from torch.optim.lr_scheduler import OneCycleLR, CosineAnnealingLR
 from trainer.make_unbalanced_ibl import make_trainer
 import argparse
 import pickle
@@ -39,7 +39,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
 
     mask_mode = 'region' # 'time' or 'region' or 'time_region'
 
-    num_epochs = 500
+    num_epochs = 400
     batch_size = 64
     lr = 1e-3
     use_wandb = True
@@ -140,6 +140,11 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
                         pct_start=config['optimizer']['warmup_pct'],
                         div_factor=config['optimizer']['div_factor'],
                     )
+        # lr_scheduler = CosineAnnealingLR(
+        #                 optimizer,
+        #                 T_max=config['training']['num_epochs'],
+        #                 eta_min=1e-5
+        #             )
         
         model, optimizer, train_dataloader, val_dataloader = accelerator.prepare(model, optimizer, train_dataloader, val_dataloader)
         
