@@ -118,7 +118,7 @@ def preprocess_y(y: torch.Tensor, smooth_w: float):
     return gaussian_filter1d_torch(y, smooth_w, axis=1)
 
 
-def preprocess_X(X: torch.Tensor, smooth_w: float, halfbin_X: int):
+def preprocess_X(X: torch.Tensor, smooth_w: float, halfbin_X: int, smoothing: bool = True):
     """
     X: (K, T, N) torch tensor
 
@@ -139,7 +139,8 @@ def preprocess_X(X: torch.Tensor, smooth_w: float, halfbin_X: int):
     X_padded = X_padded_tlast.permute(0, 2, 1)              # (K, T + 2*halfbin_X, N)
 
     # 2) smooth padded X along time axis
-    X_padded = gaussian_filter1d_torch(X_padded, smooth_w, axis=1)
+    if smoothing:
+        X_padded = gaussian_filter1d_torch(X_padded, smooth_w, axis=1)
 
     # 3) window concatenation
     win_size = 1 + 2 * halfbin_X
