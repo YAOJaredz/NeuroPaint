@@ -31,6 +31,11 @@ class MaskedLinear(nn.Module):
         mask = torch.zeros_like(self.linear.weight)
         output_mask = torch.zeros(output_dim)
         
+        # Initialize weights to 0 first to ensure unconnected parts are 0
+        with torch.no_grad():
+            self.linear.weight.fill_(0.0)
+            self.linear.bias.fill_(0.0)
+        
         for in_inds, out_inds in mask_map:
             if len(in_inds) > 0 and len(out_inds) > 0:
                 # Convert to tensors
@@ -43,10 +48,26 @@ class MaskedLinear(nn.Module):
                 # Set output mask: these outputs are active
                 output_mask[out_t] = 1.0
                 
+                # Custom Initialization based on local fan-in
+                # PyTorch Linear default is Uniform(-1/sqrt(fan_in), 1/sqrt(fan_in))
+                fan_in = len(in_inds)
+                bound = 1 / np.sqrt(fan_in) if fan_in > 0 else 0
+                
+                with torch.no_grad():
+                    # Generate random weights for this block
+                    w_block = torch.empty(len(out_inds), len(in_inds))
+                    nn.init.uniform_(w_block, -bound, bound)
+                    self.linear.weight.data[out_t[:, None], in_t] = w_block
+                    
+                    # Generate random bias for this block
+                    b_block = torch.empty(len(out_inds))
+                    nn.init.uniform_(b_block, -bound, bound)
+                    self.linear.bias.data[out_t] = b_block
+                
         self.register_buffer('mask', mask)
         self.register_buffer('output_mask', output_mask)
         
-        # Initialize weights to respect the mask
+        # Ensure strict masking after initialization
         with torch.no_grad():
             mask = getattr(self, 'mask')
             output_mask = getattr(self, 'output_mask')
@@ -282,9 +303,9 @@ class Linear_MAE(nn.Module):
             )
 
         loss = torch.nanmean(self.loss_fn(outputs, spikes_targets))
+        regularization_loss = torch.nanmean(torch.abs(torch.diff(x, dim=1)))
         
         if with_reg:
-            regularization_loss = torch.nanmean(torch.abs(torch.diff(x, dim=1)))
             loss += regularization_loss * 0.1
         
         return MAE_Output(
