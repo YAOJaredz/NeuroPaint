@@ -98,7 +98,6 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
 
     train_dataloader = dataloader['train']
     val_dataloader = dataloader['val']
-    test_dataloader = dataloader['test']
 
     print('check heldout info of dataset')
     print(heldout_info_list)

@@ -31,9 +31,10 @@ class LinearStitcher(nn.Module):
         super().__init__()
         self.eids = list(map(str, session_list))
         self.areaoi_ind = np.array(areaoi_ind, dtype=int)
-        self.halfbin_X: int = config.halfbin_X         # type: ignore
-        self.smooth_w: float = config.smooth_w       # type: ignore
-        self.n_channels_per_region: int = config.n_channels_per_region            # type: ignore
+        self.smoothing: bool = config['smoothing']
+        self.halfbin_X: int = config['halfbin_X']
+        self.smooth_w: float = config['smooth_w']
+        self.n_channels_per_region: int = config['n_channels_per_region']
         self.output_dim: int = len(areaoi_ind) * self.n_channels_per_region
         
         self.region_to_idx = {r: i for i,r in enumerate(areaoi_ind)}
@@ -54,7 +55,7 @@ class LinearStitcher(nn.Module):
     def forward(self, x: torch.Tensor, eid: str, neuron_regions: torch.Tensor, is_left: torch.Tensor) -> torch.Tensor:
         B, T, N = x.size()
         
-        x = preprocess_X(x.clone(), smooth_w=self.smooth_w, halfbin_X=self.halfbin_X)
+        x = preprocess_X(x.clone(), smooth_w=self.smooth_w, halfbin_X=self.halfbin_X, smoothing=self.smoothing)
         neuron_regions = neuron_regions.repeat_interleave(1 + 2 * self.halfbin_X, dim=1)  # (B, N*(1+2*halfbin_X))
 
         region_emb_x = torch.zeros(B, T, len(self.areaoi_ind) * self.n_channels_per_region, device=x.device, dtype=torch.float32)
@@ -220,8 +221,10 @@ class Linear_MAE(nn.Module):
         B, T, N = spikes.size()
         if eid is None:
             raise ValueError("eid must be provided")
-        else:
+        elif isinstance(eid, torch.Tensor):
             eid_str = str(eid.item())
+        else:
+            eid_str = str(eid)
         
         spikes_targets = spikes.clone()
 
@@ -230,14 +233,21 @@ class Linear_MAE(nn.Module):
             trial_type=trial_type, masking_mode=masking_mode, force_mask=force_mask
         )
 
-        regularization_loss = torch.nanmean(torch.abs(torch.diff(x, dim=1)))
-
         outputs = self.decoder.forward(x, eid_str, neuron_regions)
         outputs = torch.clamp(outputs, max=5.3)
+        
+        if not self.training:
+            return MAE_Output(
+                loss = None,
+                regularization_loss = None,
+                preds = outputs,
+                targets = spikes_targets
+            )
 
         loss = torch.nanmean(self.loss_fn(outputs, spikes_targets))
         
         if with_reg:
+            regularization_loss = torch.nanmean(torch.abs(torch.diff(x, dim=1)))
             loss += regularization_loss * 0.1
         
         return MAE_Output(
