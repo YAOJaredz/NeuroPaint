@@ -2,7 +2,6 @@
 #SBATCH --account=bdye-delta-gpu
 #SBATCH --job-name="test_linear_ibl"
 #SBATCH --output="logs/test_linear_ibl.%j.out"
-#SBATCH --error="logs/test_linear_ibl.%j.err"
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
@@ -31,5 +30,3 @@ eids=$(python -c "with open('$session_order_file', 'r') as file: print('\n'.join
 echo "Loaded eids: $eids"
 
 python -u src/test_linear_ibl.py --eids $eids --with_reg
-
-conda deactivate
