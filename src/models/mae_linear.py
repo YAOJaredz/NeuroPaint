@@ -215,7 +215,8 @@ class Linear_MAE(nn.Module):
         masking_mode:     Optional[str] = None,
         eid:              Optional[torch.Tensor] = None,
         with_reg:       Optional[bool] = False,
-        force_mask:       Optional[dict] = None
+        force_mask:       Optional[dict] = None,
+        compute_loss:     Optional[bool] = True
     ) -> MAE_Output:  
 
         B, T, N = spikes.size()
@@ -236,7 +237,7 @@ class Linear_MAE(nn.Module):
         outputs = self.decoder.forward(x, eid_str, neuron_regions)
         outputs = torch.clamp(outputs, max=5.3)
         
-        if not self.training:
+        if not compute_loss:
             return MAE_Output(
                 loss = None,
                 regularization_loss = None,

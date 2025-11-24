@@ -177,7 +177,8 @@ def main(eids: list[str], with_reg: bool, consistency: bool, override: bool = Fa
                 trial_type=trial_type,
                 masking_mode=mask_mode,
                 eid=eid,
-                force_mask=force_mask
+                force_mask=force_mask,
+                compute_loss=False
             )
             factors_pred = model_output.preds
             print(factors_pred.size())
