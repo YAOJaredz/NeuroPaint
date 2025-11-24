@@ -4,6 +4,7 @@ import numpy as np
 from typing import Optional
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from dataclasses import dataclass
 import pickle
 
@@ -21,6 +22,47 @@ class MAE_Output(ModelOutput):
     preds: Optional[torch.Tensor] = None
     targets: Optional[torch.Tensor] = None
 
+class MaskedLinear(nn.Module):
+    def __init__(self, input_dim: int, output_dim: int, mask_map: list[tuple[np.ndarray, np.ndarray]]):
+        super().__init__()
+        self.linear = nn.Linear(input_dim, output_dim)
+        
+        # Create mask for weights
+        mask = torch.zeros_like(self.linear.weight)
+        output_mask = torch.zeros(output_dim)
+        
+        for in_inds, out_inds in mask_map:
+            if len(in_inds) > 0 and len(out_inds) > 0:
+                # Convert to tensors
+                out_t = torch.as_tensor(out_inds, dtype=torch.long)
+                in_t = torch.as_tensor(in_inds, dtype=torch.long)
+                
+                # Set weight mask: connect specified inputs to specified outputs
+                mask[out_t[:, None], in_t] = 1.0
+                
+                # Set output mask: these outputs are active
+                output_mask[out_t] = 1.0
+                
+        self.register_buffer('mask', mask)
+        self.register_buffer('output_mask', output_mask)
+        
+        # Initialize weights to respect the mask
+        with torch.no_grad():
+            mask = getattr(self, 'mask')
+            output_mask = getattr(self, 'output_mask')
+            self.linear.weight.data *= mask
+            self.linear.bias.data *= output_mask
+
+    def forward(self, x: torch.Tensor):
+        # Apply mask to weights during forward pass
+        mask = getattr(self, 'mask')
+        output_mask = getattr(self, 'output_mask')
+        masked_weight = self.linear.weight * mask
+        masked_bias = self.linear.bias * output_mask
+        
+        out = F.linear(x, masked_weight, masked_bias)
+        return out
+
 class LinearStitcher(nn.Module):
     """ Maps neuron activity to region embeddings for session-area combinations. """
     def __init__(self, 
@@ -37,43 +79,34 @@ class LinearStitcher(nn.Module):
         self.n_channels_per_region: int = config['n_channels_per_region']
         self.output_dim: int = len(areaoi_ind) * self.n_channels_per_region
         
-        self.region_to_idx = {r: i for i,r in enumerate(areaoi_ind)}
+        self.session_modules = nn.ModuleDict()
         
-        session_area_linears = {}
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
-            for area in self.areaoi_ind:
-                n_neurons = int(np.sum(area_ind_list == area)) * (1 + 2 * self.halfbin_X)
-                if n_neurons == 0:
-                    continue
-                session_area_linears[f"{session_ind}_{area}"] = nn.Linear(n_neurons, self.n_channels_per_region)
-
-        self.session_area_linears = nn.ModuleDict(session_area_linears)
-
-        # self.hemisphere_embed = nn.Embedding(2, self.n_emb)
-
+            expanded_area_inds = np.repeat(area_ind_list, 1 + 2 * self.halfbin_X)
+            total_neurons_expanded = len(expanded_area_inds)
+            
+            mask_map = []
+            for i, area in enumerate(self.areaoi_ind):
+                # Input indices: neurons in this area
+                in_inds = np.where(expanded_area_inds == area)[0]
+                
+                # Output indices: channels for this area
+                start_idx = i * self.n_channels_per_region
+                end_idx = (i + 1) * self.n_channels_per_region
+                out_inds = np.arange(start_idx, end_idx)
+                
+                if len(in_inds) > 0:
+                    mask_map.append((in_inds, out_inds))
+            
+            self.session_modules[str(session_ind)] = MaskedLinear(
+                total_neurons_expanded, self.output_dim, mask_map
+            )
 
     def forward(self, x: torch.Tensor, eid: str, neuron_regions: torch.Tensor, is_left: torch.Tensor) -> torch.Tensor:
-        B, T, N = x.size()
         
         x = preprocess_X(x.clone(), smooth_w=self.smooth_w, halfbin_X=self.halfbin_X, smoothing=self.smoothing)
-        neuron_regions = neuron_regions.repeat_interleave(1 + 2 * self.halfbin_X, dim=1)  # (B, N*(1+2*halfbin_X))
-
-        region_emb_x = torch.zeros(B, T, len(self.areaoi_ind) * self.n_channels_per_region, device=x.device, dtype=torch.float32)
-        for area in self.areaoi_ind:
-            if f"{eid}_{area}" not in self.session_area_linears:
-                continue
-            sa_embed = self.session_area_linears[f"{eid}_{area}"]
-            neuron_mask = torch.where(neuron_regions[0] == area)[0]
-            x_area = x[:, :, neuron_mask]  # (B, T, n_neurons_in_area)
-
-            area_ind = self.region_to_idx[area]
-            region_emb_x[:, :, area_ind * self.n_channels_per_region:(area_ind + 1) * self.n_channels_per_region] = sa_embed(x_area)
-
-        # hemi_emb = self.hemisphere_embed(is_left).expand(B, 1, self.n_emb)
-        # emb_x = torch.cat([region_emb_x, hemi_emb], dim=1)  # (B, num_regions*n_emb + n_emb, T)
-        emb_x = region_emb_x  # (B, T, num_regions*n_emb)
-
-        return emb_x  # (B, T, num_regions*n_emb)
+        
+        return self.session_modules[eid](x)
 
 class LinearEncoder(nn.Module):
     """ Maps neuron activity to latent representations. """
@@ -151,31 +184,34 @@ class LinearDecoder(nn.Module):
         self.area_ind_list_list = area_ind_list_list
         self.areaoi_ind = np.array(areaoi_ind, dtype=int)
         
-        area_session_linears = {}
+        # Latent structure (Input to decoder)
+        # Concatenate latents for all regions in order of areaoi_ind
+        self.lat_areas = np.concatenate([np.repeat(area, self.n_latents_dict[area]) for area in areaoi_ind])
+        input_dim = len(self.lat_areas)
+        
+        self.session_modules = nn.ModuleDict()
+        
         for session_ind, area_ind_list in zip(session_list, area_ind_list_list):
+            # Output dim: number of neurons in session
+            output_dim = len(area_ind_list)
+            
+            mask_map = []
             for area in self.areaoi_ind:
-                n_neurons = int(np.sum(area_ind_list == area))
-                if n_neurons == 0:
-                    continue
-                area_session_linears[f"{session_ind}_{area}"] = nn.Linear(self.n_latents_dict[area], n_neurons)
-        self.session_area_linears = nn.ModuleDict(area_session_linears)
-
-        self.lat_areas = np.concatenate([np.repeat(area, self.n_latents_dict[area]) for area in areaoi_ind]).tolist()
+                # Input indices: latents for this area
+                in_inds = np.where(self.lat_areas == area)[0]
+                
+                # Output indices: neurons for this area
+                out_inds = np.where(area_ind_list == area)[0]
+                
+                if len(out_inds) > 0:
+                    mask_map.append((in_inds, out_inds))
+            
+            self.session_modules[str(session_ind)] = MaskedLinear(
+                input_dim, output_dim, mask_map
+            )
 
     def forward(self, x: torch.Tensor, eid: str, neuron_regions: torch.Tensor) -> torch.Tensor:
-        B, T, _ = x.size()
-        output = torch.zeros(B, T, neuron_regions.size(1), device=x.device)
-        for area in self.areaoi_ind:
-
-            if f"{eid}_{area}" not in self.session_area_linears:
-                continue
-
-            sa_embed = self.session_area_linears[f"{eid}_{area}"]
-            neuro_mask = torch.where(neuron_regions[0] == area)[0]
-            x_area = x[:, :, self.lat_areas == area]  # (B, T, n_latents_in_area)
-            output[:, :, neuro_mask] = sa_embed(x_area)
-
-        return output
+        return self.session_modules[eid](x)
     
 
 class Linear_MAE(nn.Module):
