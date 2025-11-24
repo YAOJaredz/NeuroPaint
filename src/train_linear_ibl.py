@@ -23,10 +23,11 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ["TORCH_USE_CUDA_DSA"] = "1"
 os.environ["WANDB_IGNORE_COPY_ERR"] = "true"
 
-def main(eids: list[str], with_reg: bool, consistency: bool):
+def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool):
     print(f"eids: {eids}")
     print(f"with_reg: {with_reg}")
     print(f"consistency: {consistency}")
+    print(f"smooth: {smooth}")
 
     torch.cuda.empty_cache()
     
@@ -56,6 +57,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
     config['wandb']['use'] = use_wandb
     config['wandb']['project'] = 'lin-mae-ibl'
     config['optimizer']['lr'] = lr
+    config['model']['encoder']['stitcher']['smoothing'] = smooth
     
     meta_data = {}
     
@@ -104,7 +106,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
     
     if train:
         log_dir = \
-            base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}" / f"num_session_{num_train_sessions}"
+            base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}_smooth_{smooth}" / f"num_session_{num_train_sessions}"
         os.makedirs(log_dir, exist_ok=True)
     
         if not torch.cuda.is_available():
@@ -119,14 +121,14 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
                        dir="/root_folder/wandb", 
                     entity=config.wandb.entity, # type: ignore
                     config=config, 
-                    name=f"lin_mae-ibl-reg_{with_reg}-consistency_{consistency}-sessions_{num_train_sessions}"
+                    name=f"lin_mae-ibl-reg_{with_reg}-consistency_{consistency}-smooth_{smooth}-sessions_{num_train_sessions}"
                     )
         
         model = Linear_MAE(config.model, **meta_data)
         
         if load_previous_model:
             previous_model_path = \
-                base_path / "finetune" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}" / \
+                base_path / "finetune" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}_smooth_{smooth}" / \
                     f"num_session_{num_train_sessions}" / 'model_best.pt'
             state_dict = torch.load(previous_model_path, map_location=accelerator.device)['model']
             model.load_state_dict(state_dict)
@@ -185,9 +187,10 @@ if __name__ == "__main__":
     parser.add_argument('--eids', nargs='+', required=True, help='List of eids for training sessions')
     parser.add_argument('--with_reg', action='store_true', help='Whether to use regularization')
     parser.add_argument('--consistency', action='store_true', help='Whether to use consistency')
+    parser.add_argument('--smooth', action='store_true', help='Whether to use smoothing')
     args = parser.parse_args()
 
-    main(args.eids, args.with_reg, args.consistency)
+    main(args.eids, args.with_reg, args.consistency, args.smooth)
 
     # eids = [
     #     'f312aaec-3b6f-44b3-86b4-3a0c119c0438', 
@@ -196,4 +199,5 @@ if __name__ == "__main__":
     #     ]
     # with_reg = False
     # consistency = False
-    # main(eids, with_reg, consistency)
+    # smooth = False
+    # main(eids, with_reg, consistency, smooth)

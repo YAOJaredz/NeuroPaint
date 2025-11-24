@@ -82,7 +82,7 @@ class Trainer():
 
                         wandb.log({"best_epoch": epoch,
                                 "best_gt_pred_fig": wandb.Image(gt_pred_fig['plot_gt_pred']),
-                                "best_r2_fig": wandb.Image(gt_pred_fig['plot_r2'])})
+                                "best_r2_fig": wandb.Image(gt_pred_fig['plot_r2'])}, step=epoch)
                 
                 if eval_epoch_results[f'eval_trial_avg_{self.metric}']> best_eval_trial_avg_metric:
                     best_eval_trial_avg_metric = eval_epoch_results[f'eval_trial_avg_{self.metric}']
@@ -109,7 +109,7 @@ class Trainer():
                         wandb.log({
                             "gt_pred_fig": wandb.Image(gt_pred_fig['plot_gt_pred']),
                             "r2_fig": wandb.Image(gt_pred_fig['plot_r2'])
-                        })
+                        }, step=epoch)
 
             # wandb log
             if self.config.wandb.use and self.accelerator.is_local_main_process and self.accelerator.process_index == 0:
@@ -123,7 +123,7 @@ class Trainer():
                         "eval_regularization_loss": eval_epoch_results['eval_regularization_loss'],
                         "eval_consistency_loss": eval_epoch_results['eval_consistency_loss'],
                         f"eval_trial_avg_{self.metric}": eval_epoch_results[f'eval_trial_avg_{self.metric}']
-                    })
+                    }, step=epoch)
                 else:
                     wandb.log({
                         "train_loss": train_epoch_results['train_loss'],
@@ -131,7 +131,7 @@ class Trainer():
                         "eval_loss": eval_epoch_results['eval_loss'],
                         "eval_regularization_loss": eval_epoch_results['eval_regularization_loss'],
                         f"eval_trial_avg_{self.metric}": eval_epoch_results[f'eval_trial_avg_{self.metric}']
-                    })
+                    }, step=epoch)
                 
         # save last model
         if self.accelerator.is_local_main_process and self.accelerator.process_index == 0:

@@ -49,10 +49,11 @@ def get_pred_fr_and_dfe(
     
     return fr_pred_test, spikes_region_test, dfe_test
 
-def main(eids: list[str], with_reg: bool, consistency: bool, override: bool = False):
+def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool, override: bool = False):
     print(f"eids: {eids}")
     print(f"with_reg: {with_reg}")
     print(f"consistency: {consistency}")
+    print(f"smooth: {smooth}")
 
     torch.cuda.empty_cache()
 
@@ -78,6 +79,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, override: bool = Fa
     config['wandb']['use'] = use_wandb
     config['wandb']['project'] = 'lin-mae-ibl'
     config['optimizer']['lr'] = lr
+    config['model']['encoder']['stitcher']['smoothing'] = smooth
     
     meta_data = {}
 
@@ -109,7 +111,8 @@ def main(eids: list[str], with_reg: bool, consistency: bool, override: bool = Fa
     accelerator = Accelerator()
     
     model_path = \
-        base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}" / f"num_session_{num_train_sessions}" / 'model_best_eval_loss.pt'
+        base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}_smooth_{smooth}" / \
+            f"num_session_{num_train_sessions}" / 'model_best_eval_loss.pt'
     model = Linear_MAE(config.model, **meta_data)
     
     state_dict = torch.load(model_path, map_location=accelerator.device)['model']
@@ -119,7 +122,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, override: bool = Fa
     model.eval()
     
     save_path = \
-        base_path / "eval" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}" / f"num_session_{num_train_sessions}"
+        base_path / "eval" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}_smooth_{smooth}" / f"num_session_{num_train_sessions}"
     
     save_path.mkdir(parents=True, exist_ok=True)
     print(f"Results saved to: {save_path}")
@@ -181,7 +184,6 @@ def main(eids: list[str], with_reg: bool, consistency: bool, override: bool = Fa
                 compute_loss=False
             )
             factors_pred = model_output.preds
-            print(factors_pred.size())
 
             dfe_no_mask_pred[eid] = {}
             dfe_no_mask_from_record_to_heldout[eid] = {}
@@ -193,6 +195,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, override: bool = Fa
             n_trial_train = int(B*0.6)
 
             for idx, area_ind in enumerate(areaoi_ind):
+                print(area_ind)
                 #no mask MAE
                 factors_region = factors_pred[:,:, neuron_regions == area_ind]
                 spikes_region = batch['spikes_data_full'][:,:,area_ind_list_full==area_ind]
@@ -225,9 +228,11 @@ if __name__ == "__main__":
     parser.add_argument('--eids', type=str, nargs='+', help='List of EIDs')
     parser.add_argument('--with_reg', action='store_true', help='Use regularization')
     parser.add_argument('--consistency', action='store_true', help='Use consistency')
+    parser.add_argument('--smooth', action='store_true', help='Use smoothing')
+    parser.add_argument('--override', action='store_true', help='Override existing results')
 
     args = parser.parse_args()
-    main(args.eids, args.with_reg, args.consistency)
+    main(args.eids, args.with_reg, args.consistency, args.smooth, args.override)
     
     # eids = [
     #     'f312aaec-3b6f-44b3-86b4-3a0c119c0438', 
@@ -236,4 +241,5 @@ if __name__ == "__main__":
     #     ]
     # with_reg = False
     # consistency = False
-    # main(eids, with_reg, consistency, override=True)
+    # smooth = False
+    # main(eids, with_reg, consistency, smooth)
