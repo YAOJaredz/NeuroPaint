@@ -104,7 +104,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
     
     if train:
         log_dir = \
-            base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}" / f"consistency_{consistency}" / f"num_session_{num_train_sessions}"
+            base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}" / f"num_session_{num_train_sessions}"
         os.makedirs(log_dir, exist_ok=True)
     
         if not torch.cuda.is_available():
@@ -126,8 +126,8 @@ def main(eids: list[str], with_reg: bool, consistency: bool):
         
         if load_previous_model:
             previous_model_path = \
-                base_path / "finetune" / "ibl_linear_mae" / f"with_reg_{with_reg}" / f"consistency_{consistency}" / \
-                    f"num_session_{num_train_sessions}" / str(hash(tuple(eids))) / 'model_best.pt'
+                base_path / "finetune" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}" / \
+                    f"num_session_{num_train_sessions}" / 'model_best.pt'
             state_dict = torch.load(previous_model_path, map_location=accelerator.device)['model']
             model.load_state_dict(state_dict)
 
