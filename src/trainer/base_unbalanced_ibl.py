@@ -54,6 +54,7 @@ class Trainer():
     def train(self):
         best_eval_loss = torch.tensor(float('inf'))
         best_eval_trial_avg_metric = -torch.tensor(float('inf'))
+        best_epoch = -1
         # train loop
         for epoch in range(self.config.training.num_epochs):
             
@@ -67,6 +68,7 @@ class Trainer():
             if eval_epoch_results:
                 if eval_epoch_results[f'eval_loss'] < best_eval_loss:
                     best_eval_loss = eval_epoch_results[f'eval_loss']
+                    best_epoch = epoch
                 
                     print(f"epoch: {epoch} best eval loss: {best_eval_loss}")
                     print(f"epoch: {epoch} eval trial avg {self.metric}: {eval_epoch_results[f'eval_trial_avg_{self.metric}']}")
@@ -80,8 +82,7 @@ class Trainer():
                         preds=eval_epoch_results['eval_preds'][0], epoch=epoch,
                         active_neurons=self.session_active_neurons[0][:5])
 
-                        wandb.log({"best_epoch": epoch,
-                                "best_gt_pred_fig": wandb.Image(gt_pred_fig['plot_gt_pred']),
+                        wandb.log({"best_gt_pred_fig": wandb.Image(gt_pred_fig['plot_gt_pred']),
                                 "best_r2_fig": wandb.Image(gt_pred_fig['plot_r2'])}, step=epoch)
                 
                 if eval_epoch_results[f'eval_trial_avg_{self.metric}']> best_eval_trial_avg_metric:
@@ -90,6 +91,9 @@ class Trainer():
 
                     if self.config.wandb.use and self.accelerator.is_local_main_process and self.accelerator.process_index == 0:
                         self.save_model(name="best_r2_active_neurons", epoch=epoch)
+                
+                if self.config.wandb.use:
+                    wandb.log({"best_epoch": best_epoch}, step=epoch)
                 
                 print(f"epoch: {epoch} eval loss: {eval_epoch_results['eval_loss']} {self.metric}: {eval_epoch_results[f'eval_trial_avg_{self.metric}']}")
 
