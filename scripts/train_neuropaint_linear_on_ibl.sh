@@ -10,7 +10,7 @@
 #SBATCH --mem=100000
 #SBATCH --partition=gpuA40x4,gpuA100x4,gpuA100x8,gpuH200x8
 #SBATCH --chdir=/u/jyao7/NeuroPaint
-#SBATCH --array=0-5
+#SBATCH --array=0-7
 
 echo "Running on $(hostname)"          # Print the name of the current node
 echo "Using $(nproc) CPUs"             # Print the number of CPUs on the current node
@@ -41,6 +41,8 @@ declare -a COMBOS=(
     "--smooth"                      # smooth only
     "--with_reg --smooth"           # with_reg + smooth
     "--consistency --smooth"        # consistency + smooth
+    "--with_reg --consistency"      # with_reg + consistency
+    "--with_reg --consistency --smooth"  # with_reg + consistency + smooth
 )
 
 flags="${COMBOS[$SLURM_ARRAY_TASK_ID]}"
