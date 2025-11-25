@@ -15,7 +15,8 @@ from constants import (
     CONFIG_LINEAR_MAE_PATH, 
     BASE_PATH,
     FINETURN_SESSIONS_TRAINER_CONFIG_PATH,
-    IBL_N_LATANT_PATH
+    IBL_N_LATENT_PATH,
+    make_ibl_linear_model_path
 )
 
 warnings.simplefilter("ignore")
@@ -88,7 +89,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool):
     meta_data['num_sessions'] = len(eids)
     meta_data['eids'] = [eid_idx for eid_idx, eid in enumerate(eids)]
 
-    with open(IBL_N_LATANT_PATH, 'rb') as f:
+    with open(IBL_N_LATENT_PATH, 'rb') as f:
         pr_max_dict = pickle.load(f)
 
     meta_data['pr_max_dict'] = pr_max_dict
@@ -106,7 +107,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool):
     
     if train:
         log_dir = \
-            base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}_smooth_{smooth}" / f"num_session_{num_train_sessions}"
+            base_path / "train" / make_ibl_linear_model_path(with_reg, consistency, smooth, num_train_sessions)
         os.makedirs(log_dir, exist_ok=True)
     
         if not torch.cuda.is_available():
@@ -128,8 +129,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool):
         
         if load_previous_model:
             previous_model_path = \
-                base_path / "finetune" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}_smooth_{smooth}" / \
-                    f"num_session_{num_train_sessions}" / 'model_best.pt'
+                base_path / "finetune" / make_ibl_linear_model_path(with_reg, consistency, smooth, num_train_sessions) / 'model_best.pt'
             state_dict = torch.load(previous_model_path, map_location=accelerator.device)['model']
             model.load_state_dict(state_dict)
 

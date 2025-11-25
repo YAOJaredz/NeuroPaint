@@ -11,7 +11,7 @@ from utils.config_utils import config_from_kwargs, update_config
 from utils.utils import set_seed, move_batch_to_device
 from accelerate import Accelerator
 from utils.metric_utils import Poisson_fraction_deviance_explained, get_deviance_explained
-from constants import BASE_PATH, CONFIG_LINEAR_MAE_PATH, FINETURN_SESSIONS_TRAINER_CONFIG_PATH, IBL_N_LATANT_PATH
+from constants import BASE_PATH, CONFIG_LINEAR_MAE_PATH, FINETURN_SESSIONS_TRAINER_CONFIG_PATH, IBL_N_LATENT_PATH, make_ibl_linear_model_path
 
 import argparse
 import pickle
@@ -94,7 +94,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool, overr
     meta_data['num_sessions'] = len(eids)
     meta_data['eids'] = [eid_idx for eid_idx, eid in enumerate(eids)]
     
-    with open(IBL_N_LATANT_PATH, 'rb') as f:
+    with open(IBL_N_LATENT_PATH, 'rb') as f:
         pr_max_dict = pickle.load(f)
     
     for k, v in pr_max_dict.items():
@@ -111,8 +111,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool, overr
     accelerator = Accelerator()
     
     model_path = \
-        base_path / "train" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}_smooth_{smooth}" / \
-            f"num_session_{num_train_sessions}" / 'model_best_eval_loss.pt'
+        base_path / "train" / make_ibl_linear_model_path(with_reg, consistency, smooth, num_train_sessions) / 'model_best_eval_loss.pt'
     model = Linear_MAE(config.model, **meta_data)
     
     state_dict = torch.load(model_path, map_location=accelerator.device)['model']
@@ -121,8 +120,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool, overr
     
     model.eval()
     
-    save_path = \
-        base_path / "eval" / "ibl_linear_mae" / f"with_reg_{with_reg}_consistency_{consistency}_smooth_{smooth}" / f"num_session_{num_train_sessions}"
+    save_path = base_path / "eval" / make_ibl_linear_model_path(with_reg, consistency, smooth, num_train_sessions)
     
     save_path.mkdir(parents=True, exist_ok=True)
     print(f"Results saved to: {save_path}")
