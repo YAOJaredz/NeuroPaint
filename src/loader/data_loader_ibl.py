@@ -323,7 +323,7 @@ def make_loader(
                 data_loader[name] =  DatasetDataLoader(dataset_list, batch_size= sum(num_trials[name]), seed=seed, distributed=distributed, rank=rank, world_size=world_size) #for test, the batch size is the total number of trials
             print('Succesfully constructing the dataloader for ', name)
 
-    with open(DATASET_HELDOUT_INFO_PATH / f'ibl_heldout_info_{hash((*tuple(session_ind_list), seed, batch_size))}.json', 'w') as f:
+    with open(DATASET_HELDOUT_INFO_PATH / f'ibl_heldout_info_{hash(tuple(session_ind_list))}.json', 'w') as f:
         json.dump(heldout_info_list, f, indent=4)
     
     # np.save("/work/hdd/bdye/jxia4/data/tables_and_infos/ibl_region_to_ind.npy", region_to_ind)
