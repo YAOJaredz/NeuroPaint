@@ -8,7 +8,7 @@ FINETURN_SESSIONS_TRAINER_CONFIG_PATH = CONFIG_PATH / 'finetune_sessions_trainer
 
 DATA_PATH = Path('/work/hdd/bdye/jyao7/data')
 DATA_INFO_PATH = DATA_PATH / 'tables_and_infos'
-
+DATASET_HELDOUT_INFO_PATH = Path('src/loader/heldout_info')
 
 
 # Linear MAE IBL path

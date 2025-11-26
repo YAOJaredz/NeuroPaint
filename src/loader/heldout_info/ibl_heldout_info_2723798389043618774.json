@@ -1,0 +1,102 @@
+[
+    {
+        "session_ind": "f312aaec-3b6f-44b3-86b4-3a0c119c0438",
+        "heldout_region_name": "LP",
+        "heldout_region_ind": 1
+    },
+    {
+        "session_ind": "51e53aff-1d5d-4182-a684-aba783d50ae5",
+        "heldout_region_name": "VISa",
+        "heldout_region_ind": 4
+    },
+    {
+        "session_ind": "88224abb-5746-431f-9c17-17d7ef806e6a",
+        "heldout_region_name": "DG",
+        "heldout_region_ind": 2
+    },
+    {
+        "session_ind": "c7248e09-8c0d-40f2-9eb4-700a8973d8c8",
+        "heldout_region_name": "VPM",
+        "heldout_region_ind": 5
+    },
+    {
+        "session_ind": "4b00df29-3769-43be-bb40-128b1cba6d35",
+        "heldout_region_name": "LP",
+        "heldout_region_ind": 1
+    },
+    {
+        "session_ind": "a8a8af78-16de-4841-ab07-fde4b5281a03",
+        "heldout_region_name": "PO",
+        "heldout_region_ind": 0
+    },
+    {
+        "session_ind": "ebe090af-5922-4fcd-8fc6-17b8ba7bad6d",
+        "heldout_region_name": "VISa",
+        "heldout_region_ind": 4
+    },
+    {
+        "session_ind": "6c6b0d06-6039-4525-a74b-58cfaa1d3a60",
+        "heldout_region_name": "DG",
+        "heldout_region_ind": 2
+    },
+    {
+        "session_ind": "dc962048-89bb-4e6a-96a9-b062a2be1426",
+        "heldout_region_name": "APN",
+        "heldout_region_ind": 6
+    },
+    {
+        "session_ind": "0841d188-8ef2-4f20-9828-76a94d5343a4",
+        "heldout_region_name": "APN",
+        "heldout_region_ind": 6
+    },
+    {
+        "session_ind": "3e6a97d3-3991-49e2-b346-6948cb4580fb",
+        "heldout_region_name": "MRN",
+        "heldout_region_ind": 7
+    },
+    {
+        "session_ind": "9b528ad0-4599-4a55-9148-96cc1d93fb24",
+        "heldout_region_name": "LP",
+        "heldout_region_ind": 1
+    },
+    {
+        "session_ind": "e2b845a1-e313-4a08-bc61-a5f662ed295e",
+        "heldout_region_name": "DG",
+        "heldout_region_ind": 2
+    },
+    {
+        "session_ind": "2bdf206a-820f-402f-920a-9e86cd5388a4",
+        "heldout_region_name": "APN",
+        "heldout_region_ind": 6
+    },
+    {
+        "session_ind": "ecb5520d-1358-434c-95ec-93687ecd1396",
+        "heldout_region_name": "VISa",
+        "heldout_region_ind": 4
+    },
+    {
+        "session_ind": "4b7fbad4-f6de-43b4-9b15-c7c7ef44db4b",
+        "heldout_region_name": "MRN",
+        "heldout_region_ind": 7
+    },
+    {
+        "session_ind": "15b69921-d471-4ded-8814-2adad954bcd8",
+        "heldout_region_name": "VISa",
+        "heldout_region_ind": 4
+    },
+    {
+        "session_ind": "49e0ab27-827a-4c91-bcaa-97eea27a1b8d",
+        "heldout_region_name": "MRN",
+        "heldout_region_ind": 7
+    },
+    {
+        "session_ind": "7f6b86f9-879a-4ea2-8531-294a221af5d0",
+        "heldout_region_name": "CA1",
+        "heldout_region_ind": 3
+    },
+    {
+        "session_ind": "4fa70097-8101-4f10-b585-db39429c5ed0",
+        "heldout_region_name": "LP",
+        "heldout_region_ind": 1
+    }
+]

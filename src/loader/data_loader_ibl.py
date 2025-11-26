@@ -2,7 +2,7 @@ import os, sys
 sys.path.append('src')
 import pandas as pd
 from pynwb import NWBHDF5IO
-import pickle
+import pickle, json
 import torch
 import numpy as np
 import glob
@@ -10,7 +10,7 @@ from one.api import ONE
 from utils.ibl_data_utils import *
 from torch.utils.data import DataLoader, RandomSampler, DistributedSampler
 from loader.loader_utils import DatasetDataLoader
-from constants import DATA_INFO_PATH, IBL_AREAOI, IBL_DATA_PATH, DATA_PATH
+from constants import DATA_INFO_PATH, IBL_AREAOI, IBL_DATA_PATH, DATA_PATH, DATASET_HELDOUT_INFO_PATH
 
 #%%
 # load session_info.csv as pandas dataframe
@@ -323,6 +323,9 @@ def make_loader(
                 data_loader[name] =  DatasetDataLoader(dataset_list, batch_size= sum(num_trials[name]), seed=seed, distributed=distributed, rank=rank, world_size=world_size) #for test, the batch size is the total number of trials
             print('Succesfully constructing the dataloader for ', name)
 
+    with open(DATASET_HELDOUT_INFO_PATH / f'ibl_heldout_info_{hash((*tuple(session_ind_list), seed, batch_size))}.json', 'w') as f:
+        json.dump(heldout_info_list, f, indent=4)
+    
     # np.save("/work/hdd/bdye/jxia4/data/tables_and_infos/ibl_region_to_ind.npy", region_to_ind)
     # np.save("/work/hdd/bdye/jxia4/data/tables_and_infos/ibl_region_neuron_count.npy", region_neuron_count_dict)
     
