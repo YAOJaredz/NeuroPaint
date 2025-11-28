@@ -244,8 +244,6 @@ class Linear_MAE(nn.Module):
     ):
         super().__init__()
 
-        self.smooth_w: float = config.encoder.stitcher.smooth_w           # type: ignore
-
         if 'pr_max_dict' not in kwargs:
             lat_dict = {k: 20 for k in kwargs['areaoi_ind']}
             kwargs['pr_max_dict'] = lat_dict
@@ -272,8 +270,7 @@ class Linear_MAE(nn.Module):
         masking_mode:     Optional[str] = None,
         eid:              Optional[torch.Tensor] = None,
         with_reg:       Optional[bool] = False,
-        force_mask:       Optional[dict] = None,
-        compute_loss:     Optional[bool] = True
+        force_mask:       Optional[dict] = None
     ) -> MAE_Output:  
 
         B, T, N = spikes.size()
@@ -286,21 +283,20 @@ class Linear_MAE(nn.Module):
         
         spikes_targets = spikes.clone()
 
-        x = self.encoder.forward(
-            spikes=spikes, neuron_regions=neuron_regions, is_left=is_left, eid=eid_str,
-            trial_type=trial_type, masking_mode=masking_mode, force_mask=force_mask
+        x = self.predict_latents(
+            spikes=spikes,
+            spikes_timestamps=spikes_timestamps,
+            neuron_regions=neuron_regions,
+            is_left=is_left,
+            trial_type=trial_type,
+            masking_mode=masking_mode,
+            eid=eid,
+            with_reg=with_reg,
+            force_mask=force_mask
         )
 
         outputs = self.decoder.forward(x, eid_str, neuron_regions)
         outputs = torch.clamp(outputs, max=5.3)
-        
-        if not compute_loss:
-            return MAE_Output(
-                loss = None,
-                regularization_loss = None,
-                preds = outputs,
-                targets = spikes_targets
-            )
 
         loss = torch.nanmean(self.loss_fn(outputs, spikes_targets))
         regularization_loss = torch.nanmean(torch.abs(torch.diff(x, dim=1)))
@@ -314,3 +310,30 @@ class Linear_MAE(nn.Module):
             preds = outputs,
             targets = spikes_targets
         )
+    
+    def predict_latents(
+        self, 
+        spikes:           torch.Tensor,  # (bs, seq_len, N)
+        spikes_timestamps: torch.LongTensor,   # (bs, seq_len)
+        neuron_regions:   torch.Tensor,   # (bs, N)
+        is_left:         Optional[torch.LongTensor] = None, # (bs, N)
+        trial_type:       Optional[torch.LongTensor] = None, # (bs, )
+        masking_mode:     Optional[str] = None,
+        eid:              Optional[torch.Tensor] = None,
+        with_reg:       Optional[bool] = False,
+        force_mask:       Optional[dict] = None
+    ) -> torch.FloatTensor:
+        
+        if eid is None:
+            raise ValueError("eid must be provided")
+        elif isinstance(eid, torch.Tensor):
+            eid_str = str(eid.item())
+        else:
+            eid_str = str(eid)
+
+        x = self.encoder.forward(
+            spikes=spikes, neuron_regions=neuron_regions, is_left=is_left, eid=eid_str,
+            trial_type=trial_type, masking_mode=masking_mode, force_mask=force_mask
+        )
+        
+        return x

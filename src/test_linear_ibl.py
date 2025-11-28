@@ -117,8 +117,9 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool, overr
     state_dict = torch.load(model_path, map_location=accelerator.device)['model']
     model.load_state_dict(state_dict)
     model = accelerator.prepare(model)
-    
     model.eval()
+    
+    area_latents = model.decoder.lat_areas
     
     save_path = base_path / "eval" / make_ibl_linear_model_path(with_reg, consistency, smooth, num_train_sessions)
     
@@ -170,7 +171,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool, overr
             
             area_ind_list_full = batch['neuron_regions_full'][0] # (N_all,) 
             
-            model_output = model.forward(
+            factors_pred = model.predict_latents(
                 spikes=batch['spikes_data'],
                 spikes_timestamps=batch['spikes_timestamps'],
                 neuron_regions=batch['neuron_regions'],
@@ -178,11 +179,9 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool, overr
                 trial_type=trial_type,
                 masking_mode=mask_mode,
                 eid=eid,
-                force_mask=force_mask,
-                compute_loss=False
+                force_mask=force_mask
             )
-            factors_pred = model_output.preds
-
+            
             dfe_no_mask_pred[eid] = {}
             dfe_no_mask_from_record_to_heldout[eid] = {}
 
@@ -195,7 +194,7 @@ def main(eids: list[str], with_reg: bool, consistency: bool, smooth: bool, overr
             for idx, area_ind in enumerate(areaoi_ind):
                 print(area_ind)
                 #no mask MAE
-                factors_region = factors_pred[:,:, neuron_regions == area_ind]
+                factors_region = factors_pred[:,:, area_latents == area_ind]
                 spikes_region = batch['spikes_data_full'][:,:,area_ind_list_full==area_ind]
                 if spikes_region.size(2)<=5:
                     continue
