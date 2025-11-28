@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=2
-#SBATCH --time=05:00:00
+#SBATCH --time=03:00:00
 #SBATCH --mem=100000
 #SBATCH --partition=gpuA100x4,gpuA40x4,gpuA100x8,gpuH200x8
 #SBATCH --chdir=/u/jyao7/NeuroPaint
@@ -29,6 +29,6 @@ eids=$(python -c "with open('$session_order_file', 'r') as file: print('\n'.join
 # Print loaded eids for debugging
 echo "Loaded eids: $eids"
 
-flags="--smooth"
+flags="--with_reg"
 
-python -u src/test_linear_ibl.py --eids $eids $flags
+python -u src/test_linear_ibl.py --eids $eids $flags --override
